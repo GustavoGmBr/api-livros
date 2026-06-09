@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+    import { prisma } from '../lib/prisma.js';
 import ftpService from '../services/ftp.service.js';
 import { personagemSchema } from '../validator/personagem.validator.js';
 import { ZodError } from 'zod';
