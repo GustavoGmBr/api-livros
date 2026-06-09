@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+    import { prisma } from '../lib/prisma.js';
 import { sistemaSchema } from '../validator/sistema.validator.js';
 
 const sistemaController = {

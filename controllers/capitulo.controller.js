@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import capituloSchema from '../validator/capitulo.validator.js';
