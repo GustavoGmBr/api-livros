@@ -1,19 +1,23 @@
+
 import { Router } from 'express';
 import capituloController from '../../controllers/capitulo.controller.js';
 import authMiddleware from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// Todas as rotas abaixo exigem autenticação
+// Todas as rotas abaixo exigem token JWT válido
 router.use(authMiddleware);
 
-// CRUD de Capítulos/Subcapítulos
+// Criação de novo capítulo ou subcapítulo
 router.post('/', capituloController.store);
-router.put('/:id', capituloController.update);
-router.delete('/:id', capituloController.destroy);
 
-// 🚀 Rota para o Editor Dinâmico (Salva o array de blocos no JSON)
-// Endpoint: PUT /api/private/capitulos/:id/conteudo
-router.put('/:id/conteudo', capituloController.updateConteudo);
+// Atualização de metadados (título, número, ordem)
+router.put('/:id', capituloController.update);
+
+// Atualização específica do conteúdo dinâmico (blocos JSON)
+router.patch('/:id/conteudo', capituloController.updateConteudo);
+
+// Exclusão de capítulo (com deleção em cascata configurada no Prisma)
+router.delete('/:id', capituloController.destroy);
 
 export default router;

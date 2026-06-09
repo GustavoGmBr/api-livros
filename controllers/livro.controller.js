@@ -1,96 +1,90 @@
-import { prisma } from '../lib/prisma.js';
+import prisma from '../lib/prisma.js';
 import { livroSchema } from '../validator/livro.validator.js';
-import { ZodError } from 'zod';
 
 const livroController = {
   async index(req, res) {
     try {
-      // Incluído 'saga' na listagem geral para facilitar a exibição
+      const { saga_id } = req.query;
       const livros = await prisma.livros.findMany({
-        include: { 
-          saga: true 
+        where: saga_id ? { saga_id: Number(saga_id) } : {},
+        include: {
+          saga: { select: { nome: true } },
+          _count: { select: { capitulos: true } }
         }
       });
       res.json(livros);
     } catch (error) {
-      handleErrors(res, error);
+      res.status(500).json({ error: error.message });
     }
   },
 
   async show(req, res) {
     try {
-      const { id } = req.params;
-      const livroId = Number(id);
-      
+      const id = Number(req.params.id);
       const livro = await prisma.livros.findUnique({
-        where: { id: livroId },
-        include: { 
-          capitulos: true,
-          saga: true // Incluindo os detalhes da saga vinculada
+        where: { id },
+        include: {
+          saga: true,
+          capitulos: {
+            orderBy: { numero: 'asc' },
+            select: { id: true, numero: true, titulo: true }
+          }
         }
       });
-
       if (!livro) {
-        return res.status(404).json({ message: 'Livro não encontrado' });
+        return res.status(404).json({ error: 'Livro não encontrado' });
       }
       res.json(livro);
     } catch (error) {
-      handleErrors(res, error);
+      res.status(500).json({ error: error.message });
     }
   },
 
   async store(req, res) {
     try {
       const data = livroSchema.parse(req.body);
-      const livro = await prisma.livros.create({
-        data,
-        include: { saga: true } // Retorna o objeto criado com a saga inclusa
-      });
+      const livro = await prisma.livros.create({ data });
       res.status(201).json(livro);
     } catch (error) {
-      handleErrors(res, error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ errors: error.errors });
+      }
+      res.status(500).json({ error: error.message });
     }
   },
 
   async update(req, res) {
     try {
-      const { id } = req.params;
-      const livroId = Number(id);
+      const id = Number(req.params.id);
       const data = livroSchema.parse(req.body);
-
       const livro = await prisma.livros.update({
-        where: { id: livroId },
-        data,
-        include: { saga: true }
+        where: { id },
+        data
       });
       res.json(livro);
     } catch (error) {
-      handleErrors(res, error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ errors: error.errors });
+      }
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Livro não encontrado' });
+      }
+      res.status(500).json({ error: error.message });
     }
   },
 
   async destroy(req, res) {
     try {
-      const { id } = req.params;
-      const livroId = Number(id);
-      await prisma.livros.delete({
-        where: { id: livroId }
-      });
+      const id = Number(req.params.id);
+      await prisma.livros.delete({ where: { id } });
       res.status(204).send();
     } catch (error) {
-      handleErrors(res, error);
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Livro não encontrado' });
+      }
+      res.status(500).json({ error: error.message });
     }
   }
 };
-
-// Função auxiliar para padronizar o tratamento de erros
-function handleErrors(res, error) {
-  if (error instanceof ZodError) {
-    return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
-  } else if (error.code === 'P2025') {
-    return res.status(404).json({ message: 'Livro não encontrado' });
-  }
-  res.status(500).json({ message: 'Erro interno do servidor' });
-}
 
 export default livroController;

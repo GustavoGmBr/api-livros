@@ -3,7 +3,6 @@ import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import capituloSchema from '../validator/capitulo.validator.js';
 
-// Utilitário para BigInt
 const toJSON = (obj) => JSON.parse(JSON.stringify(obj, (key, value) =>
   typeof value === 'bigint' ? value.toString() : value
 ));
@@ -20,7 +19,6 @@ const handleError = (error, res) => {
 };
 
 const capituloController = {
-  // Lista capítulos e seus subcapítulos ( children )
   async listarPorLivro(req, res) {
     try {
       const { livroId } = req.params;
@@ -30,9 +28,7 @@ const capituloController = {
           parent_id: null
         },
         include: {
-          children: {
-            orderBy: { numero: 'asc' }
-          }
+          children: { orderBy: { numero: 'asc' } }
         },
         orderBy: { numero: 'asc' }
       });
@@ -45,14 +41,9 @@ const capituloController = {
   async show(req, res) {
     try {
       const { id } = req.params;
-
-      if (!id) {
-        return res.status(400).json({ message: 'ID ou identificador do capítulo não foi fornecido.' });
-      }
+      if (!id) return res.status(400).json({ message: 'ID não fornecido.' });
 
       let capitulo;
-
-      // 🌟 MELHORIA: Permite buscar o capítulo tanto por ID (Numérico) quanto por Slug/Nome na URL
       if (!isNaN(Number(id))) {
         capitulo = await prisma.capitulos.findUnique({
           where: { id: Number(id) },
@@ -62,14 +53,8 @@ const capituloController = {
           }
         });
       } else {
-        // Caso seu banco use o campo 'slug' ou 'nome' para busca amigável no banco
         capitulo = await prisma.capitulos.findFirst({
-          where: { 
-            OR: [
-              { slug: id },
-              { titulo: id } // Fallback caso busque pelo título exato
-            ]
-          },
+          where: { titulo: id },
           include: {
             parent: true,
             children: { orderBy: { numero: 'asc' } }
@@ -79,19 +64,12 @@ const capituloController = {
 
       if (!capitulo) return res.status(404).json({ message: 'Capítulo não encontrado' });
 
-      // RESGATE AUTOMÁTICO DE PERSONAGENS VINCULADOS AO JSON:
       let personagensVinculados = [];
-
       if (capitulo.conteudo_json && Array.isArray(capitulo.conteudo_json)) {
-        // 🌟 CORRIGIDO: Busca de forma inteligente tanto na raiz do bloco quanto dentro do objeto 'conteudo'
         const idsPersonagens = [
           ...new Set(
             capitulo.conteudo_json
-              .map(bloco => {
-                const idRaiz = bloco.personagem_id;
-                const idConteudo = bloco.conteudo?.personagem_id;
-                return idRaiz || idConteudo;
-              })
+              .map(bloco => bloco.personagem_id || bloco.conteudo?.personagem_id)
               .filter(idObj => idObj && !isNaN(Number(idObj)))
               .map(idObj => Number(idObj))
           )
@@ -99,14 +77,8 @@ const capituloController = {
 
         if (idsPersonagens.length > 0) {
           personagensVinculados = await prisma.personagens.findMany({
-            where: {
-              id: { in: idsPersonagens }
-            },
-            select: {
-              id: true,
-              nome: true,
-              imagemRosto: true
-            }
+            where: { id: { in: idsPersonagens } },
+            select: { id: true, nome: true, imagemRosto: true }
           });
         }
       }
@@ -116,15 +88,14 @@ const capituloController = {
         personagens_detalhes: personagensVinculados
       }));
     } catch (error) {
-      console.error("❌ Erro no show do capítulo:", error);
       handleError(error, res);
     }
   },
 
   async store(req, res) {
     try {
-      const validatedData = capituloSchema.parse(req.body);
-      const capitulo = await prisma.capitulos.create({ data: validatedData });
+      const data = capituloSchema.parse(req.body);
+      const capitulo = await prisma.capitulos.create({ data });
       res.status(201).json(toJSON(capitulo));
     } catch (error) {
       handleError(error, res);
@@ -135,30 +106,24 @@ const capituloController = {
     try {
       const capitulosRecentes = await prisma.capitulos.findMany({
         take: 3,
-        orderBy: {
-          id: 'desc'
-        },
+        orderBy: { id: 'desc' },
         include: {
           livros: {
-            select: {
-              titulo: true,
-              data_publicacao: true
-            }
+            select: { titulo: true, data_publicacao: true }
           }
         }
       });
 
-      const resultadoFormatado = capitulosRecentes.map(cap => ({
+      const formatado = capitulosRecentes.map(cap => ({
         id: cap.id,
-        titulo: cap.titulo || "Sem título",
+        titulo: cap.titulo,
         numero: cap.numero,
         livro: cap.livros?.titulo || "Crônica Isolada",
         data: cap.livros?.data_publicacao || null
       }));
 
-      return res.json(toJSON(resultadoFormatado));
+      res.json(toJSON(formatado));
     } catch (error) {
-      console.error("❌ Erro ao buscar últimas crônicas:", error);
       handleError(error, res);
     }
   },
@@ -166,10 +131,10 @@ const capituloController = {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const validatedData = capituloSchema.parse(req.body);
+      const data = capituloSchema.parse(req.body);
       const capitulo = await prisma.capitulos.update({
         where: { id: Number(id) },
-        data: validatedData,
+        data,
       });
       res.json(toJSON(capitulo));
     } catch (error) {
@@ -181,23 +146,13 @@ const capituloController = {
     try {
       const { id } = req.params;
       const { blocos } = req.body;
-
-      if (!id) return res.status(400).json({ message: 'ID do capítulo é obrigatório' });
-
       const capitulo = await prisma.capitulos.update({
         where: { id: Number(id) },
-        data: {
-          conteudo_json: blocos
-        }
+        data: { conteudo_json: blocos }
       });
-
-      return res.json(toJSON(capitulo));
+      res.json(toJSON(capitulo));
     } catch (error) {
-      console.error('Erro ao atualizar conteúdo JSON:', error);
-      if (error.code === 'P2025') {
-        return res.status(404).json({ message: 'Capítulo não encontrado' });
-      }
-      return res.status(500).json({ message: 'Erro interno ao salvar conteúdo' });
+      handleError(error, res);
     }
   },
 

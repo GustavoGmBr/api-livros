@@ -1,15 +1,31 @@
-import { PrismaClient } from '@prisma/client';
-import ftpService from '../services/ftp.service.js'; // ✅ Extensão .js obrigatória
+import prisma from '../lib/prisma.js';
+import ftpService from '../services/ftp.service.js';
+import { personagemSchema } from '../validator/personagem.validator.js';
+import { ZodError } from 'zod';
 
-const prisma = new PrismaClient();
+// Utilitário para BigInt e Datas
+const toJSON = (obj) => JSON.parse(JSON.stringify(obj, (key, value) =>
+  typeof value === 'bigint' ? value.toString() : value
+));
+
+const handleError = (error, res) => {
+  if (error instanceof ZodError) {
+    return res.status(400).json({ message: 'Erro de validação', errors: error.errors });
+  }
+  console.error('❌ Erro no PersonagemController:', error);
+  return res.status(500).json({ error: error.message || 'Erro interno no servidor' });
+};
 
 const personagemController = {
-  async listar(req, res) {
+  async index(req, res) {
     try {
-      console.log('📋 Listando personagens...');
-      // ✅ Ajustado para 'personagens' conforme seu schema
       const personagens = await prisma.personagens.findMany({
-        include: {
+        select: {
+          id: true,
+          nome: true,
+          mundo_origem: true, // 👈 Force a seleção aqui
+          afiliacao: true,
+          // ... adicione os outros campos que você precisa na tabela
           historicos: {
             orderBy: { criado_em: 'desc' },
             take: 1,
@@ -18,25 +34,24 @@ const personagemController = {
         },
         orderBy: { nome: 'asc' }
       });
-      console.log(`✅ ${personagens.length} personagens listados.`);
-      res.json(personagens);
+      console.log("💎 Bruto do Prisma:", personagens[1]); // Veja se mundo_origem aparece aqui
+      res.json(toJSON(personagens));
     } catch (error) {
-      console.error('❌ Erro ao listar personagens:', error);
-      res.status(500).json({ error: 'Erro interno ao carregar lista' });
+      handleError(error, res);
     }
   },
 
-  async criar(req, res) {
+  async store(req, res) {
     try {
-      console.log('➕ Criando novo personagem...');
-      const dados = req.body;
+      // Validação dos dados textuais
+      const dadosValidados = personagemSchema.parse(req.body);
       const files = req.files;
 
       let urlCorpo = null;
       let urlRosto = null;
 
       if (files) {
-        const nomeLimpo = dados.nome ? dados.nome.replace(/\s+/g, '_') : 'Personagem';
+        const nomeLimpo = dadosValidados.nome.replace(/\s+/g, '_');
         if (files.corpo) {
           urlCorpo = await ftpService.uploadFile(files.corpo[0], 'personagens', `${nomeLimpo}_Corpo`);
         }
@@ -47,91 +62,75 @@ const personagemController = {
 
       const novoPersonagem = await prisma.personagens.create({
         data: {
-          ...dados,
-          imagemCorpo: urlCorpo, // ✅ Nome correto do campo no seu schema
-          imagemRosto: urlRosto   // ✅ Nome correto do campo no seu schema
+          ...dadosValidados,
+          imagemCorpo: urlCorpo,
+          imagemRosto: urlRosto
         }
       });
 
-      console.log(`✅ Personagem criado com ID: ${novoPersonagem.id}`);
-      res.status(201).json(novoPersonagem);
+      res.status(201).json(toJSON(novoPersonagem));
     } catch (error) {
-      console.error('❌ Erro ao criar personagem:', error);
-      res.status(400).json({ error: 'Erro ao criar personagem', detalhes: error.message });
+      handleError(error, res);
     }
   },
-  // personagemController.js
 
-  async buscarParaLeitura(req, res) {
-    try {
-      const { id, capituloId } = req.params;
-
-      // LOG DE DEBUG
-      console.log(`DEBUG: Buscando Personagem ID: ${id} no Capítulo ID: ${capituloId}`);
-
-      const personagem = await prisma.personagens.findUnique({
-        where: { id: parseInt(id) },
-        include: {
-          historicos: {
-            // Filtro crucial: deve bater com o ID do capítulo que você está lendo
-            where: { capitulo_id: parseInt(capituloId) },
-            include: { raca: true }
-          }
-        }
-      });
-
-      console.log("DEBUG: Histórico encontrado:", personagem?.historicos);
-
-      if (!personagem) return res.status(404).json({ error: 'Personagem não encontrado' });
-      res.json(personagem);
-    } catch (error) {
-      console.error('❌ Erro no controller:', error);
-      res.status(500).json({ error: 'Erro interno' });
-    }
-  },
-  async buscarPorId(req, res) {
+  async show(req, res) {
     try {
       const { id } = req.params;
-      console.log(`🔍 Buscando personagem ID: ${id}...`);
       const personagem = await prisma.personagens.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: Number(id) },
         include: {
           historicos: {
             orderBy: { criado_em: 'desc' },
             take: 1,
             include: { raca: true }
           }
+          // Formas removidas conforme solicitado
         }
       });
 
-      if (!personagem) {
-        console.log(`🚨 Personagem ID ${id} não encontrado.`);
-        return res.status(404).json({ error: 'Não encontrado' });
-      }
-
-      res.json(personagem);
+      if (!personagem) return res.status(404).json({ error: 'Personagem não encontrado' });
+      res.json(toJSON(personagem));
     } catch (error) {
-      console.error('❌ Erro ao buscar personagem:', error);
-      res.status(500).json({ error: 'Erro ao buscar detalhes' });
+      handleError(error, res);
     }
   },
 
-  async atualizar(req, res) {
+  async buscarParaLeitura(req, res) {
+    try {
+      const { id, capituloId } = req.params;
+
+      const personagem = await prisma.personagens.findUnique({
+        where: { id: Number(id) },
+        include: {
+          historicos: {
+            where: { capitulo_id: Number(capituloId) },
+            include: { raca: true }
+          }
+        }
+      });
+
+      if (!personagem) return res.status(404).json({ error: 'Personagem não encontrado para este capítulo' });
+      res.json(toJSON(personagem));
+    } catch (error) {
+      handleError(error, res);
+    }
+  },
+
+  async update(req, res) {
     try {
       const { id } = req.params;
-      const dados = req.body;
+      const dadosValidados = personagemSchema.parse(req.body);
       const files = req.files;
 
-      console.log(`✏️ Atualizando personagem ID: ${id}...`);
-
-      const atual = await prisma.personagens.findUnique({ where: { id: parseInt(id) } });
+      const atual = await prisma.personagens.findUnique({ where: { id: Number(id) } });
       if (!atual) return res.status(404).json({ error: "Personagem não encontrado" });
 
       let urlCorpo = atual.imagemCorpo;
       let urlRosto = atual.imagemRosto;
 
       if (files) {
-        const nomeLimpo = (dados.nome || atual.nome).replace(/\s+/g, '_');
+        const nomeLimpo = (dadosValidados.nome || atual.nome).replace(/\s+/g, '_');
         if (files.corpo) {
           urlCorpo = await ftpService.uploadFile(files.corpo[0], 'personagens', `${nomeLimpo}_Corpo`);
         }
@@ -141,32 +140,27 @@ const personagemController = {
       }
 
       const atualizado = await prisma.personagens.update({
-        where: { id: parseInt(id) },
+        where: { id: Number(id) },
         data: {
-          ...dados,
+          ...dadosValidados,
           imagemCorpo: urlCorpo,
           imagemRosto: urlRosto
         }
       });
 
-      console.log(`✅ Personagem ID ${id} atualizado.`);
-      res.json(atualizado);
+      res.json(toJSON(atualizado));
     } catch (error) {
-      console.error('❌ Erro ao atualizar personagem:', error);
-      res.status(400).json({ error: "Erro ao atualizar" });
+      handleError(error, res);
     }
   },
 
-  async deletar(req, res) {
+  async destroy(req, res) {
     try {
       const { id } = req.params;
-      console.log(`🗑️ Deletando personagem ID: ${id}...`);
-      await prisma.personagens.delete({ where: { id: parseInt(id) } });
-      console.log(`✅ Personagem ID ${id} deletado.`);
+      await prisma.personagens.delete({ where: { id: Number(id) } });
       res.status(204).send();
     } catch (error) {
-      console.error('❌ Erro ao deletar personagem:', error);
-      res.status(400).json({ error: "Erro ao deletar" });
+      handleError(error, res);
     }
   }
 };
