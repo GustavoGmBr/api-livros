@@ -71,8 +71,7 @@ const personagemFormaController = {
         where: { id },
         include: {
           sistema: true,
-          historico: true,
-          personagem: true
+          personagem: { select: { nome: true } }
         }
       });
 
@@ -82,6 +81,7 @@ const personagemFormaController = {
       handleError(error, res);
     }
   },
+
 
   async update(req, res) {
     try {

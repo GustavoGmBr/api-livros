@@ -150,35 +150,32 @@ model personagem_historico {
 }
 
 model personagem_forma {
-  id            Int  @id @default(autoincrement())
-  personagem_id Int  @map("personagem_id")
-  sistema_id    Int  @map("sistema_id") // Novo campo: Define o sistema de poder da forma
-  historico_id  Int? @map("historico_id")
-
-  nome        String
-  descricao   String? @db.Text
-  ranque      String?
-  subnivel    Int     @default(1)
-  bonusPC     Float   @default(0) @map("bonus_pc")
-  pcForma       Int?     @map("pc_forma") // ➕ Novo campo adicionado
-  imagemRosto String? @map("imagem_rosto")
-  imagemCorpo String? @map("imagem_corpo")
-
+  id            Int      @id @default(autoincrement())
+  personagem_id Int      @map("personagem_id")
+  sistema_id    Int      @map("sistema_id")
+  nome          String
+  descricao     String?  @db.Text
+  ranque        String?
+  subnivel      Int      @default(1)
+  bonusPC       Float    @default(0) @map("bonus_pc")
+  pcForma       Int?     @map("pc_forma")
+  imagemRosto   String?  @map("imagem_rosto")
+  imagemCorpo   String?  @map("imagem_corpo")
   criado_em     DateTime @default(now())
   atualizado_em DateTime @updatedAt
 
-  // Relacionamentos
-  personagem  personagens           @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
-  sistema     sistemas              @relation(fields: [sistema_id], references: [id])
-  historico   personagem_historico? @relation(fields: [historico_id], references: [id])
-  livros      livros?               @relation(fields: [livrosId], references: [id])
-  livrosId    Int?
-  capitulos   capitulos?            @relation(fields: [capitulosId], references: [id])
-  capitulosId Int?
+  // Relacionamentos Essenciais Mantidos
+  personagem             personagens           @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
+  sistema                sistemas              @relation(fields: [sistema_id], references: [id])
+  livros                 livros?               @relation(fields: [livrosId], references: [id])
+  livrosId               Int?
+  capitulos              capitulos?            @relation(fields: [capitulosId], references: [id])
+  capitulosId            Int?
+  personagemHistorico    personagem_historico? @relation(fields: [personagem_historicoId], references: [id])
+  personagem_historicoId Int?
 
   @@index([personagem_id])
   @@index([sistema_id])
-  @@index([historico_id])
   @@map("personagem_formas")
 }
 
