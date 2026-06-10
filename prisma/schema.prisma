@@ -160,6 +160,7 @@ model personagem_forma {
   ranque      String?
   subnivel    Int     @default(1)
   bonusPC     Float   @default(0) @map("bonus_pc")
+  pcForma       Int?     @map("pc_forma") // ➕ Novo campo adicionado
   imagemRosto String? @map("imagem_rosto")
   imagemCorpo String? @map("imagem_corpo")
 

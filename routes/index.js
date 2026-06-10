@@ -17,6 +17,10 @@ import capituloprivate from './private/capitulo.routes.js';
 import personagempublic from './public/personagem.routes.js';
 import personagemprivate from './private/personagem.routes.js';
 
+// import personagem Forma
+import personagemformapublic from './public/personagemForma.routes.js';
+import personagemformaprivate from './private/personagemForma.routes.js';
+
 // import sistemas
 import sistemapublic from './public/sistema.routes.js';
 import sistemaprivate from './private/sistema.routes.js';
@@ -45,6 +49,10 @@ router.use('/private/capitulos', capituloprivate);
 // 🧑 personagem
 router.use('/personagens', personagempublic);
 router.use('/private/personagens', personagemprivate);
+
+// 🤴 personagem Forma
+router.use('/personagens/formas', personagemformapublic);
+router.use('/private/personagens/formas', personagemformaprivate);
 
 // 🖥️ Sistema
 router.use('/sistemas', sistemapublic);
