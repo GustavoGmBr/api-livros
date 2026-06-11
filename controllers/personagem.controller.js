@@ -1,4 +1,4 @@
-    import { prisma } from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js';
 import ftpService from '../services/ftp.service.js';
 import { personagemSchema } from '../validator/personagem.validator.js';
 import { ZodError } from 'zod';
@@ -30,7 +30,7 @@ const personagemController = {
         },
         orderBy: { nome: 'asc' }
       });
-      
+
       console.log("💎 Bruto do Prisma:", personagens[0]); // Verifique no terminal se rodou redondo
       res.json(toJSON(personagens));
     } catch (error) {
@@ -74,15 +74,22 @@ const personagemController = {
   async show(req, res) {
     try {
       const { id } = req.params;
+
+      // 🛡️ VALIDAÇÃO: Impede que o ID seja undefined, nulo ou não-numérico
+      if (!id || isNaN(Number(id))) {
+        return res.status(400).json({ error: 'O parâmetro ID do personagem é obrigatório e deve ser um número válido.' });
+      }
+
+      const personajeIdNum = Number(id);
+
       const personagem = await prisma.personagens.findUnique({
-        where: { id: Number(id) },
+        where: { id: personajeIdNum },
         include: {
           historicos: {
             orderBy: { criado_em: 'desc' },
             take: 1,
             include: { raca: true }
           }
-          // Formas removidas conforme solicitado
         }
       });
 
@@ -96,6 +103,11 @@ const personagemController = {
   async buscarParaLeitura(req, res) {
     try {
       const { id, capituloId } = req.params;
+
+      // 🛡️ VALIDAÇÃO: Protege contra IDs ou capítulos inválidos (NaN)
+      if (!id || isNaN(Number(id)) || !capituloId || isNaN(Number(capituloId))) {
+        return res.status(400).json({ error: 'Os parâmetros ID e capituloId são obrigatórios e devem ser numéricos.' });
+      }
 
       const personagem = await prisma.personagens.findUnique({
         where: { id: Number(id) },
