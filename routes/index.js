@@ -18,8 +18,8 @@ import personagempublic from './public/personagem.routes.js';
 import personagemprivate from './private/personagem.routes.js';
 
 // import personagem Forma
-import personagemformapublic from './public/personagemForma.routes.js';
-import personagemformaprivate from './private/personagemForma.routes.js';
+import formapublic from './public/personagemForma.routes.js';
+import formaprivate from './private/personagemForma.routes.js';
 
 // import sistemas
 import sistemapublic from './public/sistema.routes.js';
@@ -28,8 +28,6 @@ import sistemaprivate from './private/sistema.routes.js';
 
 const router = Router();
 
-// 🔑 Autenticação - CORRIGIDO para /api/auth/login
-// Removi o '/public' do caminho da URL, mas mantive o import da pasta public
 router.use('/auth', authRoutes);
 
 
@@ -51,8 +49,8 @@ router.use('/personagens', personagempublic);
 router.use('/private/personagens', personagemprivate);
 
 // 🤴 personagem Forma
-router.use('/personagens/formas', personagemformapublic);
-router.use('/private/personagens/formas', personagemformaprivate);
+router.use('/formas', formapublic);
+router.use('/private/formas', formaprivate);
 
 // 🖥️ Sistema
 router.use('/sistemas', sistemapublic);

@@ -20,12 +20,8 @@ const personagemController = {
   async index(req, res) {
     try {
       const personagens = await prisma.personagens.findMany({
-        select: {
-          id: true,
-          nome: true,
-          mundo_origem: true, // 👈 Force a seleção aqui
-          afiliacao: true,
-          // ... adicione os outros campos que você precisa na tabela
+        // 🔄 Trocamos o select restrito por include para garantir que TODOS os campos (inclusive o ID) retornem
+        include: {
           historicos: {
             orderBy: { criado_em: 'desc' },
             take: 1,
@@ -34,7 +30,8 @@ const personagemController = {
         },
         orderBy: { nome: 'asc' }
       });
-      console.log("💎 Bruto do Prisma:", personagens[1]); // Veja se mundo_origem aparece aqui
+      
+      console.log("💎 Bruto do Prisma:", personagens[0]); // Verifique no terminal se rodou redondo
       res.json(toJSON(personagens));
     } catch (error) {
       handleError(error, res);
