@@ -21,6 +21,10 @@ import personagemprivate from './private/personagem.routes.js';
 import formapublic from './public/personagemForma.routes.js';
 import formaprivate from './private/personagemForma.routes.js';
 
+// import Racas
+import racaspublic from './public/racas.routes.js';
+import racasprivate from './private/racas.routes.js';
+
 // import sistemas
 import sistemapublic from './public/sistema.routes.js';
 import sistemaprivate from './private/sistema.routes.js';
@@ -43,10 +47,15 @@ router.use('/private/livros', livroprivate);
 router.use('/capitulos', capitulopublic);
 router.use('/private/capitulos', capituloprivate);
 
+// 🤴 Raças
+router.use('/racas', racaspublic);
+router.use('/private/racas', racasprivate);
+
 
 // 🧑 personagem
 router.use('/personagens', personagempublic);
 router.use('/private/personagens', personagemprivate);
+
 
 // 🤴 personagem Forma
 router.use('/formas', formapublic);

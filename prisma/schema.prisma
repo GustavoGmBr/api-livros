@@ -25,7 +25,7 @@ model livros {
   saga_id              Int?
   capitulos            capitulos[]
   saga                 sagas?                 @relation(fields: [saga_id], references: [id])
-  personagemFormas     personagem_forma[]
+  personagem_formas    personagem_forma[]
   personagemHistoricos personagem_historico[]
 
   @@index([saga_id], map: "livros_saga_id_fkey")
@@ -33,23 +33,21 @@ model livros {
 }
 
 model capitulos {
-  id                        Int    @id @default(autoincrement())
+  id                        Int                    @id @default(autoincrement())
   livro_id                  Int
   parent_id                 Int?
   numero                    Int
   titulo                    String
   personagens_participantes Json?
-  formas_participantes      Json? // Novo campo: Armazenará IDs ou nomes das formas
+  formas_participantes      Json?
   itens_participantes       Json?
   locais_participantes      Json?
   conteudo_json             Json?
-
-  livros   livros      @relation(fields: [livro_id], references: [id], onDelete: Cascade)
-  parent   capitulos?  @relation("SubCapitulos", fields: [parent_id], references: [id], onDelete: Cascade)
-  children capitulos[] @relation("SubCapitulos")
-
-  personagemFormas     personagem_forma[]
-  personagemHistoricos personagem_historico[]
+  livros                    livros                 @relation(fields: [livro_id], references: [id], onDelete: Cascade)
+  parent                    capitulos?             @relation("SubCapitulos", fields: [parent_id], references: [id], onDelete: Cascade)
+  children                  capitulos[]            @relation("SubCapitulos")
+  personagem_formas         personagem_forma[]
+  personagemHistoricos      personagem_historico[]
 
   @@index([livro_id], map: "livro_id")
   @@index([parent_id], map: "parent_id")
@@ -68,10 +66,10 @@ model locais {
 }
 
 model personagens {
-  id                  Int      @id @default(autoincrement())
+  id                  Int                    @id @default(autoincrement())
   nome                String
   titulo              String?
-  mundo_origem        String? // Novo campo adicionado
+  mundo_origem        String?
   classe              String?
   afiliacao           String?
   altura              String?
@@ -82,65 +80,54 @@ model personagens {
   olhos               String?
   olhos_especiais     String?
   tom_voz             String?
-  traje_combate       String?  @db.Text
-  traje_casual        String?  @db.Text
+  traje_combate       String?                @db.Text
+  traje_casual        String?                @db.Text
   armamento_principal String?
   virtude             String?
   defeito             String?
   temperamento        String?
   imagemCorpo         String?
   imagemRosto         String?
-  criado_em           DateTime @default(now())
-  atualizado_em       DateTime @updatedAt
-
-  formas     personagem_forma[]
-  historicos personagem_historico[]
+  criado_em           DateTime               @default(now())
+  atualizado_em       DateTime               @updatedAt
+  formas              personagem_forma[]
+  historicos          personagem_historico[]
 
   @@map("personagens")
 }
 
 model personagem_historico {
-  id            Int  @id @default(autoincrement())
-  personagem_id Int
-  livro_id      Int?
-  capitulo_id   Int?
-
-  // Dados Biográficos e de Progresso
+  id                    Int                @id @default(autoincrement())
+  personagem_id         Int
+  livro_id              Int?
+  capitulo_id           Int?
   idade                 String?
   titulo                String?
   raca_id               Int
   ranque                String?
-  subnivel              Int     @default(1)
+  subnivel              Int                @default(1)
   classificacao         String?
-  nivel                 Int     @default(1)
-  xpAtual               Int     @default(0)
-  xpProximo             Int     @default(100)
-  qtd_treino            Int     @default(0)
-  ponto_combate         Int     @default(0)
-  ponto_combateAetheris Int     @default(0)
-  bonusPCErion          Int     @default(0)
-
-  // Atributos e Customização
-  classes     String?
-  estilo_luta String?
-  maestria    String?
-  elementos   Json?
-  equipamento Json?
-  habilidades Json?
-
-  // NOVO: Registro de formas liberadas neste ponto do histórico
-  // Armazenará um array de IDs: [1, 2, 5]
-  formas_desbloqueadas Json? @default("[]")
-
-  criado_em DateTime @default(now())
-
-  // Relacionamentos
-  inventario       inventarios[]
-  capitulo         capitulos?         @relation(fields: [capitulo_id], references: [id])
-  livro            livros?            @relation(fields: [livro_id], references: [id])
-  personagem       personagens        @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
-  raca             racas              @relation(fields: [raca_id], references: [id])
-  personagemFormas personagem_forma[]
+  nivel                 Int                @default(1)
+  xpAtual               Int                @default(0)
+  xpProximo             Int                @default(100)
+  qtd_treino            Int                @default(0)
+  ponto_combate         Int                @default(0)
+  ponto_combateAetheris Int                @default(0)
+  bonusPCErion          Int                @default(0)
+  classes               String?
+  estilo_luta           String?
+  maestria              String?
+  elementos             Json?
+  equipamento           Json?
+  habilidades           Json?
+  formas_desbloqueadas  Json?
+  criado_em             DateTime           @default(now())
+  inventario            inventarios[]
+  personagem_formas     personagem_forma[]
+  capitulo              capitulos?         @relation(fields: [capitulo_id], references: [id])
+  livro                 livros?            @relation(fields: [livro_id], references: [id])
+  personagem            personagens        @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
+  raca                  racas              @relation(fields: [raca_id], references: [id])
 
   @@index([personagem_id])
   @@index([capitulo_id], map: "personagem_historico_capitulo_id_fkey")
@@ -150,32 +137,33 @@ model personagem_historico {
 }
 
 model personagem_forma {
-  id            Int      @id @default(autoincrement())
-  personagem_id Int      @map("personagem_id")
-  sistema_id    Int      @map("sistema_id")
-  nome          String
-  descricao     String?  @db.Text
-  ranque        String?
-  subnivel      Int      @default(1)
-  bonusPC       Float    @default(0) @map("bonus_pc")
-  pcForma       Int?     @map("pc_forma")
-  imagemRosto   String?  @map("imagem_rosto")
-  imagemCorpo   String?  @map("imagem_corpo")
-  criado_em     DateTime @default(now())
-  atualizado_em DateTime @updatedAt
-
-  // Relacionamentos Essenciais Mantidos
+  id                     Int                   @id @default(autoincrement())
+  personagem_id          Int                   @map("personagem_id")
+  sistema_id             Int                   @map("sistema_id")
+  nome                   String
+  descricao              String?               @db.Text
+  ranque                 String?
+  subnivel               Int                   @default(1)
+  bonusPC                Float                 @default(0) @map("bonus_pc")
+  pcForma                Int?                  @map("pc_forma")
+  imagemRosto            String?               @map("imagem_rosto")
+  imagemCorpo            String?               @map("imagem_corpo")
+  criado_em              DateTime              @default(now())
+  atualizado_em          DateTime              @updatedAt
+  livrosId               Int?
+  capitulosId            Int?
+  personagem_historicoId Int?
+  capitulos              capitulos?            @relation(fields: [capitulosId], references: [id])
+  livros                 livros?               @relation(fields: [livrosId], references: [id])
+  personagem_historico   personagem_historico? @relation(fields: [personagem_historicoId], references: [id])
   personagem             personagens           @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
   sistema                sistemas              @relation(fields: [sistema_id], references: [id])
-  livros                 livros?               @relation(fields: [livrosId], references: [id])
-  livrosId               Int?
-  capitulos              capitulos?            @relation(fields: [capitulosId], references: [id])
-  capitulosId            Int?
-  personagemHistorico    personagem_historico? @relation(fields: [personagem_historicoId], references: [id])
-  personagem_historicoId Int?
 
   @@index([personagem_id])
   @@index([sistema_id])
+  @@index([capitulosId], map: "personagem_formas_capitulosId_fkey")
+  @@index([livrosId], map: "personagem_formas_livrosId_fkey")
+  @@index([personagem_historicoId], map: "personagem_formas_personagem_historicoId_fkey")
   @@map("personagem_formas")
 }
 
@@ -203,8 +191,8 @@ model sistemas {
   limite_bonus     Json
   criado_em        DateTime           @default(now())
   atualizado_em    DateTime           @updatedAt
-  racas            racas[]
   personagemFormas personagem_forma[]
+  racas            racas[]
 
   @@map("sistemas")
 }
