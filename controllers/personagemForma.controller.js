@@ -37,11 +37,13 @@ const personagemFormaController = {
         queryWhere.personagem_id = Number(personagem_id);
       }
 
+      // Otimizamos o include trazendo estritamente apenas o ID e Nome,
+      // evitando que o Prisma tente buscar relações quebradas com 'livros' nas tabelas pai.
       const formas = await prisma.personagem_forma.findMany({
         where: queryWhere,
         include: {
-          sistema: { select: { nome: true } },
-          personagem: { select: { nome: true } }
+          sistema: { select: { id: true, nome: true } },
+          personagem: { select: { id: true, nome: true } }
         }
       });
 
@@ -53,14 +55,15 @@ const personagemFormaController = {
 
       res.json(toJSON(formasFormatadas));
     } catch (error) {
-      console.warn('⚠️ Falha no include automático. Tentando fallback seguro sem relações...');
+      console.warn('⚠️ Falha no include automático. Tentando fallback seguro sem relações:', error.message);
       try {
+        // Fallback limpo de qualquer relação para não travar a listagem na tela do admin
         const formasFallback = await prisma.personagem_forma.findMany({
           where: req.query.personagem_id ? { personagem_id: Number(req.query.personagem_id) } : {}
         });
         return res.json(toJSON(formasFallback));
       } catch (fallbackError) {
-        handleError(error, res, req);
+        handleError(fallbackError, res, req);
       }
     }
   },
@@ -70,7 +73,6 @@ const personagemFormaController = {
       res.setHeader('X-Rota-Acessada', req.originalUrl);
       console.log('📥 req.body recebido no store:', req.body);
 
-      // O Zod valida e aplica as transformações (converte "" em null se aplicável)
       const data = personagemFormaSchema.parse(req.body);
       const files = req.files;
 
@@ -87,8 +89,6 @@ const personagemFormaController = {
         }
       }
 
-      // 🔮 Extraímos as chaves indesejadas que vieram tratadas do validador
-      // para garantir que elas não sobrescrevam nossos links de upload legítimos.
       const { imagemCorpo, imagemRosto, ...payloadDados } = data;
 
       const novaForma = await prisma.personagem_forma.create({
@@ -114,8 +114,8 @@ const personagemFormaController = {
       const forma = await prisma.personagem_forma.findUnique({
         where: { id },
         include: {
-          sistema: true,
-          personagem: { select: { nome: true } }
+          sistema: { select: { id: true, nome: true } },
+          personagem: { select: { id: true, nome: true } }
         }
       });
 
@@ -140,9 +140,6 @@ const personagemFormaController = {
       const atual = await prisma.personagem_forma.findUnique({ where: { id } });
       if (!atual) return res.status(404).json({ error: "Forma não encontrada" });
 
-      // Lógica Inteligente de Mídia:
-      // Se o validador transformou o campo em 'null', significa que o usuário limpou a imagem.
-      // Se veio undefined ou manteve valor antigo textualmente, preservamos o banco atual.
       let urlCorpo = data.imagemCorpo === null ? null : atual.imagemCorpo;
       let urlRosto = data.imagemRosto === null ? null : atual.imagemRosto;
 
@@ -160,7 +157,6 @@ const personagemFormaController = {
         }
       }
 
-      // Remove os campos de imagem tratados para não quebrar a montagem do objeto de update do Prisma
       const { imagemCorpo, imagemRosto, ...payloadDados } = data;
 
       const atualizada = await prisma.personagem_forma.update({
