@@ -3,26 +3,32 @@ import ftpService from '../services/ftp.service.js';
 import { personagemFormaSchema } from '../validator/personagemForma.validator.js';
 import { ZodError } from 'zod';
 
-// Voltamos o toJSON ao que era antes (sem envelopar) para não quebrar seu hook
 const toJSON = (obj) => JSON.parse(JSON.stringify(obj, (key, value) =>
   typeof value === 'bigint' ? value.toString() : value
 ));
 
+// 🛠️ FUNÇÃO DE TRATAMENTO DE ERRO TUNADA PARA DIAGNÓSTICO
 const handleError = (error, res, req) => {
-  // Envia a rota no Header de erro também
   if (req) res.setHeader('X-Rota-Acessada', req.originalUrl);
 
   if (error instanceof ZodError) {
-    return res.status(400).json({ message: 'Erro de validação', errors: error.errors });
+    console.log('\n❌ [ZOD VALIDATION ERROR] O Backend rejeitou os dados enviados:');
+    console.dir(error.errors, { depth: null }); 
+    console.log('-------------------------------------------------------------\n');
+
+    return res.status(400).json({ 
+      message: 'Erro de validação nos campos do formulário', 
+      errors: error.errors 
+    });
   }
-  console.error('❌ Erro no PersonagemFormaController:', error);
+
+  console.error('❌ Erro crítico no PersonagemFormaController:', error);
   return res.status(500).json({ error: error.message || 'Erro interno no servidor' });
 };
 
 const personagemFormaController = {
   async index(req, res) {
     try {
-      // 🚀 Injeta a rota no Header da resposta para você testar/ver no Network do navegador
       res.setHeader('X-Rota-Acessada', req.originalUrl);
 
       const { personagem_id } = req.query;
@@ -46,7 +52,6 @@ const personagemFormaController = {
         sistema_nome: forma.sistema?.nome || 'Nenhum'
       }));
 
-      // Retorna o Array puro, exatamente como seu hook espera!
       res.json(toJSON(formasFormatadas));
     } catch (error) {
       console.warn('⚠️ Falha no include automático. Tentando fallback seguro sem relações...');
@@ -64,6 +69,9 @@ const personagemFormaController = {
   async store(req, res) {
     try {
       res.setHeader('X-Rota-Acessada', req.originalUrl);
+      
+      console.log('📥 req.body recebido no store:', req.body);
+
       const data = personagemFormaSchema.parse(req.body);
       const files = req.files;
 
@@ -72,13 +80,18 @@ const personagemFormaController = {
 
       if (files) {
         const nomeLimpo = data.nome.replace(/\s+/g, '_');
-        if (files.corpo) {
-          urlCorpo = await ftpService.uploadFile(files.corpo[0], 'formas', `${nomeLimpo}_Corpo`);
+        if (files.corpo && files.corpo[0]) {
+          urlCorpo = await ftpService.uploadFile(files.corpo[0], 'formas', `${nomeLimpo}_corpo`);
         }
-        if (files.rosto) {
-          urlRosto = await ftpService.uploadFile(files.rosto[0], 'formas', `${nomeLimpo}_Rosto`);
+        if (files.rosto && files.rosto[0]) {
+          urlRosto = await ftpService.uploadFile(files.rosto[0], 'formas', `${nomeLimpo}_rosto`);
         }
       }
+
+      // Remove as propriedades de imagem que possam vir vazias ou nulas do body de texto do Zod
+      // para não conflitar com as strings reais de URL geradas pelo FTP
+      delete data.imagemCorpo;
+      delete data.imagemRosto;
 
       const novaForma = await prisma.personagem_forma.create({
         data: {
@@ -121,6 +134,8 @@ const personagemFormaController = {
       const id = Number(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'ID inválido para atualização.' });
 
+      console.log('📥 req.body recebido no update:', req.body);
+
       const data = personagemFormaSchema.parse(req.body);
       const files = req.files;
 
@@ -132,13 +147,21 @@ const personagemFormaController = {
 
       if (files) {
         const nomeLimpo = (data.nome || atual.nome).replace(/\s+/g, '_');
-        if (files.corpo) {
-          urlCorpo = await ftpService.uploadFile(files.corpo[0], 'formas', `${nomeLimpo}_Corpo`);
+        if (files.corpo && files.corpo[0]) {
+          // Se houver imagem de corpo antiga salva, removemos ela do FTP antes de subir a nova
+          if (atual.imagemCorpo) await ftpService.deleteFile(atual.imagemCorpo);
+          urlCorpo = await ftpService.uploadFile(files.corpo[0], 'formas', `${nomeLimpo}_corpo`);
         }
-        if (files.rosto) {
-          urlRosto = await ftpService.uploadFile(files.rosto[0], 'formas', `${nomeLimpo}_Rosto`);
+        if (files.rosto && files.rosto[0]) {
+          // Se houver imagem de rosto antiga salva, removemos ela do FTP antes de subir a nova
+          if (atual.imagemRosto) await ftpService.deleteFile(atual.imagemRosto);
+          urlRosto = await ftpService.uploadFile(files.rosto[0], 'formas', `${nomeLimpo}_rosto`);
         }
       }
+
+      // Remove os campos de imagem clonados do Zod para evitar problemas de casting
+      delete data.imagemCorpo;
+      delete data.imagemRosto;
 
       const atualizada = await prisma.personagem_forma.update({
         where: { id },
@@ -161,9 +184,14 @@ const personagemFormaController = {
       const id = Number(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'ID inválido para exclusão.' });
 
+      // Opcional: Coleta os dados misticos da forma antes de apagar e deleta os uploads vinculados do FTP
+      const forma = await prisma.personagem_forma.findUnique({ where: { id } });
+      if (forma) {
+        if (forma.imagemCorpo) await ftpService.deleteFile(forma.imagemCorpo);
+        if (forma.imagemRosto) await ftpService.deleteFile(forma.imagemRosto);
+      }
+
       await prisma.personagem_forma.delete({ where: { id } });
-      
-      // Pode voltar para o 204 original se o front-end não precisa ler o corpo!
       res.status(204).send();
     } catch (error) {
       handleError(error, res, req);

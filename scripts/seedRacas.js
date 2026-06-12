@@ -27,7 +27,7 @@ async function main() {
         { "ordem": 9, "raridade": "Celestial", "valores": [700, 1300] },
         { "ordem": 10, "raridade": "Transcendente", "valores": [1300, 1700] },
         { "ordem": 11, "raridade": "Guardião", "valores": [1700, 1900] },
-        { "ordem": 12, "raridade": "Criador", "valores": [1900, 2500] }
+        { "ordem": 12, "raridade": "Criador", "valores": [1900, 3000] }
       ],
       limite_bonus: { 
         "Inferior": 50, "Comum": 50, "Incomum": 80, "Avançado": 100, "Superior": 150, 
@@ -51,7 +51,7 @@ async function main() {
         { "ordem": 4, "raridade": "Oculta", "valores": [350, 600] },
         { "ordem": 5, "raridade": "Superior", "valores": [600, 1100] },
         { "ordem": 6, "raridade": "Desastre", "valores": [1100, 1600] },
-        { "ordem": 7, "raridade": "Primordial", "valores": [1800, 2500] }
+        { "ordem": 7, "raridade": "Primordial", "valores": [1800, 2800] }
       ],
       limite_bonus: { 
         "Inferior": 80, "Bestial": 120, "Combatente": 180, 
