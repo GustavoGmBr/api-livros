@@ -7,7 +7,6 @@ const toJSON = (obj) => JSON.parse(JSON.stringify(obj, (key, value) =>
   typeof value === 'bigint' ? value.toString() : value
 ));
 
-// 🛠️ FUNÇÃO DE TRATAMENTO DE ERRO TUNADA PARA DIAGNÓSTICO
 const handleError = (error, res, req) => {
   if (req) res.setHeader('X-Rota-Acessada', req.originalUrl);
 
@@ -69,9 +68,9 @@ const personagemFormaController = {
   async store(req, res) {
     try {
       res.setHeader('X-Rota-Acessada', req.originalUrl);
-      
       console.log('📥 req.body recebido no store:', req.body);
 
+      // O Zod valida e aplica as transformações (converte "" em null se aplicável)
       const data = personagemFormaSchema.parse(req.body);
       const files = req.files;
 
@@ -88,14 +87,13 @@ const personagemFormaController = {
         }
       }
 
-      // Remove as propriedades de imagem que possam vir vazias ou nulas do body de texto do Zod
-      // para não conflitar com as strings reais de URL geradas pelo FTP
-      delete data.imagemCorpo;
-      delete data.imagemRosto;
+      // 🔮 Extraímos as chaves indesejadas que vieram tratadas do validador
+      // para garantir que elas não sobrescrevam nossos links de upload legítimos.
+      const { imagemCorpo, imagemRosto, ...payloadDados } = data;
 
       const novaForma = await prisma.personagem_forma.create({
         data: {
-          ...data,
+          ...payloadDados,
           imagemCorpo: urlCorpo,
           imagemRosto: urlRosto
         }
@@ -142,31 +140,33 @@ const personagemFormaController = {
       const atual = await prisma.personagem_forma.findUnique({ where: { id } });
       if (!atual) return res.status(404).json({ error: "Forma não encontrada" });
 
-      let urlCorpo = atual.imagemCorpo;
-      let urlRosto = atual.imagemRosto;
+      // Lógica Inteligente de Mídia:
+      // Se o validador transformou o campo em 'null', significa que o usuário limpou a imagem.
+      // Se veio undefined ou manteve valor antigo textualmente, preservamos o banco atual.
+      let urlCorpo = data.imagemCorpo === null ? null : atual.imagemCorpo;
+      let urlRosto = data.imagemRosto === null ? null : atual.imagemRosto;
 
       if (files) {
         const nomeLimpo = (data.nome || atual.nome).replace(/\s+/g, '_');
+        
         if (files.corpo && files.corpo[0]) {
-          // Se houver imagem de corpo antiga salva, removemos ela do FTP antes de subir a nova
           if (atual.imagemCorpo) await ftpService.deleteFile(atual.imagemCorpo);
           urlCorpo = await ftpService.uploadFile(files.corpo[0], 'formas', `${nomeLimpo}_corpo`);
         }
+        
         if (files.rosto && files.rosto[0]) {
-          // Se houver imagem de rosto antiga salva, removemos ela do FTP antes de subir a nova
           if (atual.imagemRosto) await ftpService.deleteFile(atual.imagemRosto);
           urlRosto = await ftpService.uploadFile(files.rosto[0], 'formas', `${nomeLimpo}_rosto`);
         }
       }
 
-      // Remove os campos de imagem clonados do Zod para evitar problemas de casting
-      delete data.imagemCorpo;
-      delete data.imagemRosto;
+      // Remove os campos de imagem tratados para não quebrar a montagem do objeto de update do Prisma
+      const { imagemCorpo, imagemRosto, ...payloadDados } = data;
 
       const atualizada = await prisma.personagem_forma.update({
         where: { id },
         data: {
-          ...data,
+          ...payloadDados,
           imagemCorpo: urlCorpo,
           imagemRosto: urlRosto
         }
@@ -184,7 +184,6 @@ const personagemFormaController = {
       const id = Number(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'ID inválido para exclusão.' });
 
-      // Opcional: Coleta os dados misticos da forma antes de apagar e deleta os uploads vinculados do FTP
       const forma = await prisma.personagem_forma.findUnique({ where: { id } });
       if (forma) {
         if (forma.imagemCorpo) await ftpService.deleteFile(forma.imagemCorpo);

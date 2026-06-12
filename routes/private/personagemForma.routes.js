@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import personagemFormaController from '../../controllers/personagemForma.controller.js';
 import authMiddleware from '../../middlewares/auth.middleware.js';
-// 🚀 Alterado para importar o middleware específico que configuramos juntos
 import { uploadFormaEspecial } from '../../middlewares/upload.js';
 
 const router = Router();
