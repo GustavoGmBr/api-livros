@@ -36,7 +36,7 @@ const capituloController = {
     }
   },
 
-  // GET /capitulos/:id (Aceita ID numérico ou Título)
+  // GET /capitulos/:id
   async show(req, res) {
     try {
       const { id } = req.params;
@@ -48,6 +48,12 @@ const capituloController = {
             ...(idNumerico ? [{ id: idNumerico }] : []),
             { titulo: id }
           ]
+        },
+        // ✨ ADICIONE ESTA LINHA AQUI PARA TRAZER OS SUBCAPÍTULOS:
+        include: {
+          children: {
+            orderBy: { numero: "asc" } // Já traz ordenadinho por número
+          }
         }
       });
 
@@ -55,18 +61,7 @@ const capituloController = {
         return res.status(404).json({ error: "Capítulo não encontrado" });
       }
 
-      // Extração de participantes do conteúdo JSON para carregar os detalhes relacionados
-      const conteudo = capitulo.conteudo_json || {};
-      const pIds = [...new Set(conteudo.personagens_participantes || [])];
-      const lIds = [...new Set(conteudo.locais_participantes || [])];
-      const iIds = [...new Set(conteudo.itens_participantes || [])];
-
-      // Busca paralela otimizada no banco
-      const [personagens, locais, itens] = await Promise.all([
-        prisma.personagens.findMany({ where: { id: { in: pIds } }, select: { id: true, nome: true, imagemRosto: true } }),
-        prisma.locais.findMany({ where: { id: { in: lIds } }, select: { id: true, nome: true } }),
-        prisma.itens.findMany({ where: { id_item: { in: iIds } }, select: { id_item: true, nome: true } }) // Ajustado para id_item com base no seu schema
-      ]);
+      // ... resto do seu código de extração de participantes (pIds, lIds, iIds)
 
       return res.json(toJSON({
         ...capitulo,
