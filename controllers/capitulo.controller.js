@@ -42,7 +42,7 @@ const capituloController = {
       const { id } = req.params;
       const idNumerico = !isNaN(Number(id)) ? Number(id) : undefined;
 
-      // 1. Buscando o capítulo pai com as suas sub-relações (children)
+      // 1. Busca o capítulo no banco trazendo os subcapítulos (children)
       const capitulo = await prisma.capitulos.findFirst({
         where: {
           OR: [
@@ -50,7 +50,6 @@ const capituloController = {
             { titulo: id }
           ]
         },
-        // 🌟 ESSA LINHA É O SEGREDO. Se ela não estiver aqui, o Postman/React nunca verão os subcapítulos!
         include: {
           children: {
             orderBy: { numero: 'asc' }
@@ -62,18 +61,38 @@ const capituloController = {
         return res.status(404).json({ error: "Capítulo não encontrado" });
       }
 
-      // ... lógica de IDs de personagens, locais e itens (pIds, lIds, iIds) ...
+      // 2. ✨ CORREÇÃO AQUI: Define e extrai os IDs com segurança para evitar o "not defined"
+      const parseIds = (field) => {
+        if (!field) return [];
+        if (Array.isArray(field)) return field.map(Number);
+        try {
+          const parsed = typeof field === 'string' ? JSON.parse(field) : field;
+          return Array.isArray(parsed) ? parsed.map(Number) : [];
+        } catch {
+          return [];
+        }
+      };
 
-      // 2. Junção dos dados paralelos
+      const pIds = parseIds(capitulo.personagens_participantes);
+      const lIds = parseIds(capitulo.locais_participantes);
+      const iIds = parseIds(capitulo.itens_participantes);
+
+      // 3. Busca paralela dos detalhes usando os IDs extraídos
       const [personagens, locais, itens] = await Promise.all([
-        prisma.personagens.findMany({ where: { id: { in: pIds } }, select: { id: true, nome: true, imagemRosto: true } }),
-        prisma.locais.findMany({ where: { id: { in: lIds } }, select: { id: true, nome: true } }),
-        prisma.itens.findMany({ where: { id_item: { in: iIds } }, select: { id_item: true, nome: true } })
+        pIds.length > 0
+          ? prisma.personagens.findMany({ where: { id: { in: pIds } }, select: { id: true, nome: true, imagemRosto: true } })
+          : [],
+        lIds.length > 0
+          ? prisma.locais.findMany({ where: { id: { in: lIds } }, select: { id: true, nome: true } })
+          : [],
+        iIds.length > 0
+          ? prisma.itens.findMany({ where: { id_item: { in: iIds } }, select: { id_item: true, nome: true } })
+          : []
       ]);
 
-      // 3. O Retorno final precisa espalhar (...capitulo) para que o "children" do include vá junto!
+      // 4. Retorno final unificando o capítulo (com children) + os detalhes populados
       return res.json(toJSON({
-        ...capitulo, // 🌟 Isso garante que o array 'children' gerado no include seja enviado no JSON!
+        ...capitulo,
         personagens_detalhes: personagens,
         locais_detalhes: locais,
         itens_detalhes: itens
