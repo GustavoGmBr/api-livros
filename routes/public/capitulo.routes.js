@@ -6,10 +6,10 @@ const router = Router();
 // Lista os capítulos mais recentes para o feed/dashboard
 router.get('/', capituloController.listarRecentes);
 
-// Busca por ID ou Título (Slug) - inclui detalhes de personagens participantes
+// Busca por ID ou Título (Slug) - inclui detalhes dos participantes
 router.get('/:id', capituloController.show);
 
-// Lista hierárquica (Parent/Children) filtrada por Livro
-router.get('/livro/:livroId', capituloController.listarPorLivro);
+// Lista hierárquica (Pai/Filhos) filtrada por ID do Livro
+router.get('/livro/:livro_id', capituloController.listarPorLivro);
 
 export default router;

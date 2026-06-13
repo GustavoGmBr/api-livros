@@ -1,28 +1,42 @@
 import prisma from "../lib/prisma.js";
 import { capituloSchema } from "../validator/capitulo.validator.js";
 
-const toJSON = (data) => JSON.parse(JSON.stringify(data, (key, value) => (typeof value === "bigint" ? value.toString() : value)));
+// Serializador para evitar problemas com BigInt e dados complexos
+const toJSON = (data) =>
+  JSON.parse(JSON.stringify(data, (key, value) => (typeof value === "bigint" ? value.toString() : value)));
 
-// Trata os erros e exibe no console para você saber exatamente o que falhou
+// Centralização de erros exibindo detalhes no terminal
 const handleError = (res, error) => {
   console.error("💥 ERRO DETECTADO NO CONTROLLER:", error);
   return res.status(500).json({ error: error.message || "Erro interno no servidor" });
 };
 
 const capituloController = {
+  // GET /capitulos/livro/:livro_id
   async listarPorLivro(req, res) {
     try {
-      // ✨ AJUSTE: Pegando 'livroId' para bater com o que você colocou na sua rota pública (/:livroId)
-      const { livroId } = req.params;
+      const { livro_id } = req.params;
+
       const capitulos = await prisma.capitulos.findMany({
-        where: { livro_id: Number(livroId), parent_id: null },
+        where: {
+          livro_id: Number(livro_id),
+          parent_id: null
+        },
         orderBy: { numero: "asc" },
-        include: { children: { orderBy: { numero: "asc" } } }
+        include: {
+          children: {
+            orderBy: { numero: "asc" }
+          }
+        }
       });
-      res.json(toJSON(capitulos));
-    } catch (error) { handleError(res, error); }
+
+      return res.json(toJSON(capitulos));
+    } catch (error) {
+      return handleError(res, error);
+    }
   },
 
+  // GET /capitulos/:id (Aceita ID numérico ou Título)
   async show(req, res) {
     try {
       const { id } = req.params;
@@ -37,51 +51,67 @@ const capituloController = {
         }
       });
 
-      if (!capitulo) return res.status(404).json({ error: "Capítulo não encontrado" });
+      if (!capitulo) {
+        return res.status(404).json({ error: "Capítulo não encontrado" });
+      }
 
+      // Extração de participantes do conteúdo JSON para carregar os detalhes relacionados
       const conteudo = capitulo.conteudo_json || {};
       const pIds = [...new Set(conteudo.personagens_participantes || [])];
       const lIds = [...new Set(conteudo.locais_participantes || [])];
       const iIds = [...new Set(conteudo.itens_participantes || [])];
 
+      // Busca paralela otimizada no banco
       const [personagens, locais, itens] = await Promise.all([
         prisma.personagens.findMany({ where: { id: { in: pIds } }, select: { id: true, nome: true, imagemRosto: true } }),
         prisma.locais.findMany({ where: { id: { in: lIds } }, select: { id: true, nome: true } }),
-        prisma.itens.findMany({ where: { id: { in: iIds } }, select: { id: true, nome: true } })
+        prisma.itens.findMany({ where: { id_item: { in: iIds } }, select: { id_item: true, nome: true } }) // Ajustado para id_item com base no seu schema
       ]);
 
-      res.json(toJSON({ ...capitulo, personagens_detalhes: personajes, locais_detalhes: locais, itens_detalhes: itens }));
-    } catch (error) { handleError(res, error); }
+      return res.json(toJSON({
+        ...capitulo,
+        personagens_detalhes: personagens,
+        locais_detalhes: locais,
+        itens_detalhes: itens
+      }));
+    } catch (error) {
+      return handleError(res, error);
+    }
   },
 
+  // POST /capitulos
   async store(req, res) {
     try {
       const validatedData = capituloSchema.parse(req.body);
 
-      const novo = await prisma.capitulos.create({
+      const novoCapitulo = await prisma.capitulos.create({
         data: {
           numero: Number(validatedData.numero),
           titulo: validatedData.titulo,
           livro_id: Number(validatedData.livro_id),
           parent_id: validatedData.parent_id ? Number(validatedData.parent_id) : null,
-          personagens_participantes: validatedData.personagens_participantes,
-          formas_participantes: validatedData.formas_participantes,
-          itens_participantes: validatedData.itens_participantes,
-          locais_participantes: validatedData.locais_participantes,
-          conteudo_json: validatedData.conteudo_json
+          personagens_participantes: validatedData.personagens_participantes || null,
+          formas_participantes: validatedData.formas_participantes || null,
+          itens_participantes: validatedData.itens_participantes || null,
+          locais_participantes: validatedData.locais_participantes || null,
+          conteudo_json: validatedData.conteudo_json || null
         }
       });
 
-      res.status(201).json(toJSON(novo));
-    } catch (error) { handleError(res, error); }
+      return res.status(201).json(toJSON(novoCapitulo));
+    } catch (error) {
+      return handleError(res, error);
+    }
   },
 
+  // PUT /capitulos/:id
   async update(req, res) {
     try {
+      const { id } = req.params;
       const validatedData = capituloSchema.parse(req.body);
 
       const atualizado = await prisma.capitulos.update({
-        where: { id: Number(req.params.id) },
+        where: { id: Number(id) },
         data: {
           numero: Number(validatedData.numero),
           titulo: validatedData.titulo,
@@ -95,26 +125,30 @@ const capituloController = {
         }
       });
 
-      res.json(toJSON(atualizado));
-    } catch (error) { handleError(res, error); }
+      return res.json(toJSON(atualizado));
+    } catch (error) {
+      return handleError(res, error);
+    }
   },
 
+  // GET /capitulos/recentes
   async listarRecentes(req, res) {
     try {
-      const recentes = await prisma.capitulos.findMany({ take: 10, orderBy: { id: "desc" } });
-      res.json(toJSON(recentes));
-    } catch (error) { handleError(res, error); }
+      const recentes = await prisma.capitulos.findMany({
+        take: 10,
+        orderBy: { id: "desc" }
+      });
+      return res.json(toJSON(recentes));
+    } catch (error) {
+      return handleError(res, error);
+    }
   },
 
+  // PATCH/PUT /capitulos/:id/conteudo
   async updateConteudo(req, res) {
     try {
       const { id } = req.params;
       const { conteudo_json } = req.body;
-
-      // RASTREADOR 1: O que está chegando do Frontend?
-      console.log("----------------------------------------------");
-      console.log("📥 [RECEBIDO] ID da URL:", id);
-      console.log("📥 [RECEBIDO] Corpo (conteudo_json):", conteudo_json);
 
       if (!conteudo_json) {
         return res.status(400).json({ error: "O parâmetro conteudo_json é obrigatório." });
@@ -122,49 +156,101 @@ const capituloController = {
 
       let idFinal = !isNaN(Number(id)) ? Number(id) : null;
 
+      // Se o ID enviado for uma string (nome/titulo), busca o ID real do capítulo correspondente
       if (!idFinal) {
         const capituloCorrespondente = await prisma.capitulos.findFirst({
           where: { titulo: id }
         });
         if (!capituloCorrespondente) {
-          console.log("❌ [AVISO] Capítulo não encontrado pelo título:", id);
           return res.status(404).json({ error: "Não foi possível mapear o identificador do capítulo para salvamento." });
         }
         idFinal = capituloCorrespondente.id;
       }
-
-      // RASTREADOR 2: Qual ID o Prisma vai realmente atualizar?
-      console.log("🎯 [ALVO] O Prisma vai atualizar o registro com ID número:", idFinal);
 
       const dadosTratados = typeof conteudo_json === 'string'
         ? JSON.parse(conteudo_json)
         : conteudo_json;
 
       const atualizado = await prisma.capitulos.update({
-        where: { id: Number(idFinal) },
+        where: { id: idFinal },
         data: { conteudo_json: dadosTratados }
       });
 
-      // RASTREADOR 3: O que o MySQL devolveu após salvar?
-      console.log("💾 [BANCO DE DADOS] Registro atualizado com sucesso no MySQL. Resultado atual:", atualizado);
-      console.log("----------------------------------------------");
-
-      res.json(toJSON({
+      return res.json(toJSON({
         message: "Grimório preservado com sucesso!",
         data: atualizado
       }));
-
-    } catch (error) { handleError(res, error); }
+    } catch (error) {
+      return handleError(res, error);
+    }
   },
-  // ✨ NOVO MÉTODO: Criado para dar suporte à sua rota privada de exclusão
+  // DELETE /capitulos/:id
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      const deletado = await prisma.capitulos.delete({
-        where: { id: Number(id) }
+      const idNumerico = Number(id);
+
+      if (isNaN(idNumerico)) {
+        return res.status(400).json({ error: "ID inválido para exclusão." });
+      }
+
+      // Verifica se o capítulo existe antes de deletar
+      const existe = await prisma.capitulos.findUnique({
+        where: { id: idNumerico }
       });
-      res.json(toJSON({ message: "Capítulo deletado com sucesso", data: deletado }));
-    } catch (error) { handleError(res, error); }
+
+      if (!existe) {
+        return res.status(404).json({ error: "Capítulo ou subcapítulo não encontrado." });
+      }
+
+      // O Prisma cuidará dos subcapítulos automaticamente se o "onDelete: Cascade" estiver ativo no banco.
+      // Caso contrário, ele impedirá a deleção se houver filhos, garantindo a integridade.
+      await prisma.capitulos.delete({
+        where: { id: idNumerico }
+      });
+
+      return res.json({ message: "Capítulo/Subcapítulo removido com sucesso de seus registros!" });
+    } catch (error) {
+      return handleError(res, error);
+    }
+  },
+
+  // PATCH /capitulos/:id/limpar-conteudo
+  async destroyConteudo(req, res) {
+    try {
+      const { id } = req.params;
+      let idFinal = !isNaN(Number(id)) ? Number(id) : null;
+
+      // Se passarem o título em vez do ID, mapeia o ID correto
+      if (!idFinal) {
+        const capituloCorrespondente = await prisma.capitulos.findFirst({
+          where: { titulo: id }
+        });
+        if (!capituloCorrespondente) {
+          return res.status(404).json({ error: "Capítulo não encontrado para limpar o conteúdo." });
+        }
+        idFinal = capituloCorrespondente.id;
+      }
+
+      // Atualiza o conteúdo json e os arrays de participantes para nulo/vazio
+      const atualizado = await prisma.capitulos.update({
+        where: { id: idFinal },
+        data: {
+          conteudo_json: null,
+          personagens_participantes: null,
+          formas_participantes: null,
+          itens_participantes: null,
+          locais_participantes: null
+        }
+      });
+
+      return res.json(toJSON({
+        message: "Páginas do grimório limpas com sucesso. O esqueleto do capítulo foi mantido.",
+        data: atualizado
+      }));
+    } catch (error) {
+      return handleError(res, error);
+    }
   }
 };
 
