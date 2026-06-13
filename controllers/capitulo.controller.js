@@ -42,6 +42,7 @@ const capituloController = {
       const { id } = req.params;
       const idNumerico = !isNaN(Number(id)) ? Number(id) : undefined;
 
+      // 1. Buscando o capítulo pai com as suas sub-relações (children)
       const capitulo = await prisma.capitulos.findFirst({
         where: {
           OR: [
@@ -49,10 +50,10 @@ const capituloController = {
             { titulo: id }
           ]
         },
-        // ✨ ADICIONE ESTA LINHA AQUI PARA TRAZER OS SUBCAPÍTULOS:
+        // 🌟 ESSA LINHA É O SEGREDO. Se ela não estiver aqui, o Postman/React nunca verão os subcapítulos!
         include: {
           children: {
-            orderBy: { numero: "asc" } // Já traz ordenadinho por número
+            orderBy: { numero: 'asc' }
           }
         }
       });
@@ -61,14 +62,23 @@ const capituloController = {
         return res.status(404).json({ error: "Capítulo não encontrado" });
       }
 
-      // ... resto do seu código de extração de participantes (pIds, lIds, iIds)
+      // ... lógica de IDs de personagens, locais e itens (pIds, lIds, iIds) ...
 
+      // 2. Junção dos dados paralelos
+      const [personagens, locais, itens] = await Promise.all([
+        prisma.personagens.findMany({ where: { id: { in: pIds } }, select: { id: true, nome: true, imagemRosto: true } }),
+        prisma.locais.findMany({ where: { id: { in: lIds } }, select: { id: true, nome: true } }),
+        prisma.itens.findMany({ where: { id_item: { in: iIds } }, select: { id_item: true, nome: true } })
+      ]);
+
+      // 3. O Retorno final precisa espalhar (...capitulo) para que o "children" do include vá junto!
       return res.json(toJSON({
-        ...capitulo,
+        ...capitulo, // 🌟 Isso garante que o array 'children' gerado no include seja enviado no JSON!
         personagens_detalhes: personagens,
         locais_detalhes: locais,
         itens_detalhes: itens
       }));
+
     } catch (error) {
       return handleError(res, error);
     }
