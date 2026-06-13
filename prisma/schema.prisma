@@ -53,7 +53,7 @@ model capitulos {
 }
 
 model locais {
-  id        Int      @id @default(autoincarement())
+id        Int      @id @default(autoincrement())
   nome      String   @db.VarChar(255)
   mundo     String   @db.VarChar(255)
   descricao String?  @db.Text
