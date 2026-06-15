@@ -1,13 +1,20 @@
 import prisma from "../lib/prisma.js";
 import { capituloSchema } from "../validator/capitulo.validator.js";
+import { ZodError } from "zod";
 
 // Serializador para evitar problemas com BigInt e dados complexos
 const toJSON = (data) =>
   JSON.parse(JSON.stringify(data, (key, value) => (typeof value === "bigint" ? value.toString() : value)));
 
-// Centralização de erros exibindo detalhes no terminal
+// Centralização de erros inteligente
 const handleError = (res, error) => {
   console.error("💥 ERRO DETECTADO NO CONTROLLER:", error);
+  
+  // Se for erro do Zod, devolve os campos exatos que falharam para o Front-end
+  if (error instanceof ZodError) {
+    return res.status(400).json({ error: "Erro de validação nos dados enviados", detalhes: error.errors });
+  }
+  
   return res.status(500).json({ error: error.message || "Erro interno no servidor" });
 };
 
@@ -40,16 +47,12 @@ const capituloController = {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const idNumerico = !isNaN(Number(id)) ? Number(id) : undefined;
+      const idNumerico = !isNaN(Number(id)) ? Number(id) : null;
 
-      // 1. Busca o capítulo no banco trazendo os subcapítulos (children)
       const capitulo = await prisma.capitulos.findFirst({
-        where: {
-          OR: [
-            ...(idNumerico ? [{ id: idNumerico }] : []),
-            { titulo: id }
-          ]
-        },
+        where: idNumerico 
+          ? { id: idNumerico } 
+          : { titulo: id },
         include: {
           children: {
             orderBy: { numero: 'asc' }
@@ -61,26 +64,28 @@ const capituloController = {
         return res.status(404).json({ error: "Capítulo não encontrado" });
       }
 
-      // 2. ✨ CORREÇÃO AQUI: Define e extrai os IDs com segurança para evitar o "not defined"
       const parseIds = (field) => {
         if (!field) return [];
-        if (Array.isArray(field)) return field.map(Number);
+        if (Array.isArray(field)) return field.map(Number).filter(Boolean);
         try {
           const parsed = typeof field === 'string' ? JSON.parse(field) : field;
-          return Array.isArray(parsed) ? parsed.map(Number) : [];
+          return Array.isArray(parsed) ? parsed.map(Number).filter(Boolean) : [];
         } catch {
           return [];
         }
       };
 
       const pIds = parseIds(capitulo.personagens_participantes);
+      const fIds = parseIds(capitulo.formas_participantes); 
       const lIds = parseIds(capitulo.locais_participantes);
       const iIds = parseIds(capitulo.itens_participantes);
 
-      // 3. Busca paralela dos detalhes usando os IDs extraídos
-      const [personagens, locais, itens] = await Promise.all([
+      const [personagens, formas, locais, itens] = await Promise.all([
         pIds.length > 0
           ? prisma.personagens.findMany({ where: { id: { in: pIds } }, select: { id: true, nome: true, imagemRosto: true } })
+          : [],
+        fIds.length > 0
+          ? prisma.personagem_forma.findMany({ where: { id: { in: fIds } }, select: { id: true, nome: true, personagem_id: true } })
           : [],
         lIds.length > 0
           ? prisma.locais.findMany({ where: { id: { in: lIds } }, select: { id: true, nome: true } })
@@ -90,10 +95,10 @@ const capituloController = {
           : []
       ]);
 
-      // 4. Retorno final unificando o capítulo (com children) + os detalhes populados
       return res.json(toJSON({
         ...capitulo,
         personagens_detalhes: personagens,
+        formas_detalhes: formas, 
         locais_detalhes: locais,
         itens_detalhes: itens
       }));
@@ -141,11 +146,11 @@ const capituloController = {
           titulo: validatedData.titulo,
           livro_id: Number(validatedData.livro_id),
           parent_id: validatedData.parent_id ? Number(validatedData.parent_id) : null,
-          personagens_participantes: validatedData.personagens_participantes,
-          formas_participantes: validatedData.formas_participantes,
-          itens_participantes: validatedData.itens_participantes,
-          locais_participantes: validatedData.locais_participantes,
-          conteudo_json: validatedData.conteudo_json
+          personagens_participantes: validatedData.personagens_participantes || null,
+          formas_participantes: validatedData.formas_participantes || null,
+          itens_participantes: validatedData.itens_participantes || null,
+          locais_participantes: validatedData.locais_participantes || null,
+          conteudo_json: validatedData.conteudo_json || null
         }
       });
 
@@ -158,11 +163,11 @@ const capituloController = {
   // GET /capitulos/recentes
   async listarRecentes(req, res) {
     try {
-      const recentes = await prisma.capitulos.findMany({
+      const GridRecent = await prisma.capitulos.findMany({
         take: 10,
         orderBy: { id: "desc" }
       });
-      return res.json(toJSON(recentes));
+      return res.json(toJSON(GridRecent));
     } catch (error) {
       return handleError(res, error);
     }
@@ -180,7 +185,6 @@ const capituloController = {
 
       let idFinal = !isNaN(Number(id)) ? Number(id) : null;
 
-      // Se o ID enviado for uma string (nome/titulo), busca o ID real do capítulo correspondente
       if (!idFinal) {
         const capituloCorrespondente = await prisma.capitulos.findFirst({
           where: { titulo: id }
@@ -200,6 +204,7 @@ const capituloController = {
         data: { conteudo_json: dadosTratados }
       });
 
+      // 🌟 CORREÇÃO: Alterado de 'updated' para 'atualizado' para evitar quebra de referência
       return res.json(toJSON({
         message: "Grimório preservado com sucesso!",
         data: atualizado
@@ -208,6 +213,7 @@ const capituloController = {
       return handleError(res, error);
     }
   },
+
   // DELETE /capitulos/:id
   async destroy(req, res) {
     try {
@@ -218,7 +224,6 @@ const capituloController = {
         return res.status(400).json({ error: "ID inválido para exclusão." });
       }
 
-      // Verifica se o capítulo existe antes de deletar
       const existe = await prisma.capitulos.findUnique({
         where: { id: idNumerico }
       });
@@ -227,8 +232,6 @@ const capituloController = {
         return res.status(404).json({ error: "Capítulo ou subcapítulo não encontrado." });
       }
 
-      // O Prisma cuidará dos subcapítulos automaticamente se o "onDelete: Cascade" estiver ativo no banco.
-      // Caso contrário, ele impedirá a deleção se houver filhos, garantindo a integridade.
       await prisma.capitulos.delete({
         where: { id: idNumerico }
       });
@@ -245,7 +248,6 @@ const capituloController = {
       const { id } = req.params;
       let idFinal = !isNaN(Number(id)) ? Number(id) : null;
 
-      // Se passarem o título em vez do ID, mapeia o ID correto
       if (!idFinal) {
         const capituloCorrespondente = await prisma.capitulos.findFirst({
           where: { titulo: id }
@@ -256,7 +258,6 @@ const capituloController = {
         idFinal = capituloCorrespondente.id;
       }
 
-      // Atualiza o conteúdo json e os arrays de participantes para nulo/vazio
       const atualizado = await prisma.capitulos.update({
         where: { id: idFinal },
         data: {
