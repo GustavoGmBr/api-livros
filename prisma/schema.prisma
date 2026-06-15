@@ -38,7 +38,7 @@ model capitulos {
   numero                    Int
   titulo                    String
   personagens_participantes Json?
-  formas_participantes      Json? // 🔮 Aqui você salvará o array de IDs das formas do capítulo: [1, 2]
+  formas_participantes      Json?
   itens_participantes       Json?
   locais_participantes      Json?
   conteudo_json             Json?
@@ -53,7 +53,7 @@ model capitulos {
 }
 
 model locais {
-id        Int      @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   nome      String   @db.VarChar(255)
   mundo     String   @db.VarChar(255)
   descricao String?  @db.Text
@@ -118,7 +118,7 @@ model personagem_historico {
   elementos             Json?
   equipamento           Json?
   habilidades           Json?
-  formas_desbloqueadas  Json? // 🔮 Aqui você salvará o snapshot de IDs das formas ativas neste histórico: [1, 2]
+  formas_desbloqueadas  Json?
   criado_em             DateTime      @default(now())
   inventario            inventarios[]
   capitulo              capitulos?    @relation(fields: [capitulo_id], references: [id])
