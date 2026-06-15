@@ -9,9 +9,13 @@ import sagaprivate from './private/saga.routes.js';
 import livropublic from './public/livro.routes.js';
 import livroprivate from './private/livro.routes.js';
 
-// import saga
+// import capitulos
 import capitulopublic from './public/capitulo.routes.js';
 import capituloprivate from './private/capitulo.routes.js';
+
+// import locais
+import locaisPublic from './public/locais.routes.js';
+import locaisPrivate from './private/locais.routes.js';
 
 // import personagem
 import personagempublic from './public/personagem.routes.js';
@@ -47,10 +51,13 @@ router.use('/private/livros', livroprivate);
 router.use('/capitulos', capitulopublic);
 router.use('/private/capitulos', capituloprivate);
 
+// 📍 Locais
+router.use('/locais', locaisPublic);
+router.use('/private/locais', locaisPrivate)
+
 // 🤴 Raças
 router.use('/racas', racaspublic);
 router.use('/private/racas', racasprivate);
-
 
 // 🧑 personagem
 router.use('/personagens', personagempublic);

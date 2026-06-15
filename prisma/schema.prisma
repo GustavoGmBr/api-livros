@@ -218,7 +218,7 @@ model itens {
   aparencia        String?       @db.Text
   listaHabilidades Json
   urlImagem        String?       @db.VarChar(255)
-  usuarios         Json
+  usuarios         Json?
   createdAt        DateTime      @default(now())
   inventarios      inventarios[]
 
