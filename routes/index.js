@@ -17,6 +17,10 @@ import capituloprivate from './private/capitulo.routes.js';
 import locaisPublic from './public/locais.routes.js';
 import locaisPrivate from './private/locais.routes.js';
 
+// import itens
+import itensPublic from './public/itens.routes.js';
+import itensPrivate from './private/itens.routes.js';
+
 // import personagem
 import personagempublic from './public/personagem.routes.js';
 import personagemprivate from './private/personagem.routes.js';
@@ -63,6 +67,9 @@ router.use('/private/racas', racasprivate);
 router.use('/personagens', personagempublic);
 router.use('/private/personagens', personagemprivate);
 
+// ⚔️ itens
+router.use('/itens', itensPublic);
+router.use('/private/itens', itensPrivate);
 
 // 🤴 personagem Forma
 router.use('/formas', formapublic);
