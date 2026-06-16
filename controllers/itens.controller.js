@@ -1,71 +1,29 @@
-import { prisma } from '../lib/prisma.js';
-import ftpService from '../services/ftp.service.js';
-import { personagemSchema } from '../validator/personagem.validator.js';
-import { ZodError } from 'zod';
+import { prisma } from "../lib/prisma.js";
+import ftpService from "../services/ftp.service.js";
+import { itemSchema } from "../validator/itens.validator.js";
+import { ZodError } from "zod";
 
 // Utilitário para BigInt e Datas
 const toJSON = (obj) => JSON.parse(JSON.stringify(obj, (key, value) =>
-  typeof value === 'bigint' ? value.toString() : value
+  typeof value === "bigint" ? value.toString() : value
 ));
 
 const handleError = (error, res) => {
   if (error instanceof ZodError) {
-    return res.status(400).json({ message: 'Erro de validação', errors: error.errors });
+    return res.status(400).json({ message: "Erro de validação", errors: error.errors });
   }
-  console.error('❌ Erro no PersonagemController:', error);
-  return res.status(500).json({ error: error.message || 'Erro interno no servidor' });
+  console.error("❌ Erro no itensController:", error);
+  return res.status(500).json({ error: error.message || "Erro interno no servidor" });
 };
 
-const personagemController = {
+const itensController = {
   async index(req, res) {
     try {
-      const personagens = await prisma.personagens.findMany({
-        // 🔄 Trocamos o select restrito por include para garantir que TODOS os campos (inclusive o ID) retornem
-        include: {
-          historicos: {
-            orderBy: { criado_em: 'desc' },
-            take: 1,
-            include: { raca: true }
-          }
-        },
-        orderBy: { nome: 'asc' }
+      const itens = await prisma.itens.findMany({
+        orderBy: { createdAt: "desc" },
       });
 
-      console.log("💎 Bruto do Prisma:", personagens[0]); // Verifique no terminal se rodou redondo
-      res.json(toJSON(personagens));
-    } catch (error) {
-      handleError(error, res);
-    }
-  },
-
-  async store(req, res) {
-    try {
-      // Validação dos dados textuais
-      const dadosValidados = personagemSchema.parse(req.body);
-      const files = req.files;
-
-      let urlCorpo = null;
-      let urlRosto = null;
-
-      if (files) {
-        const nomeLimpo = dadosValidados.nome.replace(/\s+/g, '_');
-        if (files.corpo) {
-          urlCorpo = await ftpService.uploadFile(files.corpo[0], 'personagens', `${nomeLimpo}_Corpo`);
-        }
-        if (files.rosto) {
-          urlRosto = await ftpService.uploadFile(files.rosto[0], 'personagens', `${nomeLimpo}_Rosto`);
-        }
-      }
-
-      const novoPersonagem = await prisma.personagens.create({
-        data: {
-          ...dadosValidados,
-          imagemCorpo: urlCorpo,
-          imagemRosto: urlRosto
-        }
-      });
-
-      res.status(201).json(toJSON(novoPersonagem));
+      res.json(toJSON(itens));
     } catch (error) {
       handleError(error, res);
     }
@@ -77,50 +35,55 @@ const personagemController = {
 
       // 🛡️ VALIDAÇÃO: Impede que o ID seja undefined, nulo ou não-numérico
       if (!id || isNaN(Number(id))) {
-        return res.status(400).json({ error: 'O parâmetro ID do personagem é obrigatório e deve ser um número válido.' });
+        return res.status(400).json({ error: "O parâmetro ID do item é obrigatório e deve ser um número válido." });
       }
 
-      const personajeIdNum = Number(id);
-
-      const personagem = await prisma.personagens.findUnique({
-        where: { id: personajeIdNum },
-        include: {
-          historicos: {
-            orderBy: { criado_em: 'desc' },
-            take: 1,
-            include: { raca: true }
-          }
-        }
+      const item = await prisma.itens.findUnique({
+        where: { id_item: Number(id) },
       });
 
-      if (!personagem) return res.status(404).json({ error: 'Personagem não encontrado' });
-      res.json(toJSON(personagem));
+      if (!item) return res.status(404).json({ error: "Item não encontrado" });
+      res.json(toJSON(item));
     } catch (error) {
       handleError(error, res);
     }
   },
 
-  async buscarParaLeitura(req, res) {
+  async store(req, res) {
     try {
-      const { id, capituloId } = req.params;
+      // Validação dos dados textuais
+      const dadosValidados = itemSchema.parse(req.body);
 
-      // 🛡️ VALIDAÇÃO: Protege contra IDs ou capítulos inválidos (NaN)
-      if (!id || isNaN(Number(id)) || !capituloId || isNaN(Number(capituloId))) {
-        return res.status(400).json({ error: 'Os parâmetros ID e capituloId são obrigatórios e devem ser numéricos.' });
+      if (req.body.listaHabilidades) {
+        dadosValidados.listaHabilidades =
+          typeof req.body.listaHabilidades === "string"
+            ? JSON.parse(req.body.listaHabilidades)
+            : req.body.listaHabilidades;
       }
 
-      const personagem = await prisma.personagens.findUnique({
-        where: { id: Number(id) },
-        include: {
-          historicos: {
-            where: { capitulo_id: Number(capituloId) },
-            include: { raca: true }
-          }
-        }
+      if (req.body.usuarios) {
+        dadosValidados.usuarios =
+          typeof req.body.usuarios === "string"
+            ? JSON.parse(req.body.usuarios)
+            : req.body.usuarios;
+      }
+
+      let urlImagem = null;
+
+      if (req.file) {
+        const nomeLimpo = dadosValidados.nome ? dadosValidados.nome.replace(/\s+/g, "_") : "item";
+        urlImagem = await ftpService.uploadFile(req.file, "itens", nomeLimpo);
+      }
+
+      const novoItem = await prisma.itens.create({
+        data: {
+          ...dadosValidados,
+          urlImagem,
+          createdAt: new Date(),
+        },
       });
 
-      if (!personagem) return res.status(404).json({ error: 'Personagem não encontrado para este capítulo' });
-      res.json(toJSON(personagem));
+      res.status(201).json(toJSON(novoItem));
     } catch (error) {
       handleError(error, res);
     }
@@ -129,32 +92,45 @@ const personagemController = {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const dadosValidados = personagemSchema.parse(req.body);
-      const files = req.files;
 
-      const atual = await prisma.personagens.findUnique({ where: { id: Number(id) } });
-      if (!atual) return res.status(404).json({ error: "Personagem não encontrado" });
-
-      let urlCorpo = atual.imagemCorpo;
-      let urlRosto = atual.imagemRosto;
-
-      if (files) {
-        const nomeLimpo = (dadosValidados.nome || atual.nome).replace(/\s+/g, '_');
-        if (files.corpo) {
-          urlCorpo = await ftpService.uploadFile(files.corpo[0], 'personagens', `${nomeLimpo}_Corpo`);
-        }
-        if (files.rosto) {
-          urlRosto = await ftpService.uploadFile(files.rosto[0], 'personagens', `${nomeLimpo}_Rosto`);
-        }
+      if (!id || isNaN(Number(id))) {
+        return res.status(400).json({ error: "O parâmetro ID do item é obrigatório e deve ser um número válido." });
       }
 
-      const atualizado = await prisma.personagens.update({
-        where: { id: Number(id) },
+      const atual = await prisma.itens.findUnique({ where: { id_item: Number(id) } });
+      if (!atual) return res.status(404).json({ error: "Item não encontrado" });
+
+      const dadosValidados = itemSchema.parse(req.body);
+
+      if (req.body.listaHabilidades) {
+        dadosValidados.listaHabilidades =
+          typeof req.body.listaHabilidades === "string"
+            ? JSON.parse(req.body.listaHabilidades)
+            : req.body.listaHabilidades;
+      }
+
+      if (req.body.usuarios) {
+        dadosValidados.usuarios =
+          typeof req.body.usuarios === "string"
+            ? JSON.parse(req.body.usuarios)
+            : req.body.usuarios;
+      }
+
+      let urlImagem = atual.urlImagem;
+
+      if (req.file) {
+        const nomeLimpo = (dadosValidados.nome || atual.nome) 
+          ? (dadosValidados.nome || atual.nome).replace(/\s+/g, "_") 
+          : "item";
+        urlImagem = await ftpService.uploadFile(req.file, "itens", nomeLimpo);
+      }
+
+      const atualizado = await prisma.itens.update({
+        where: { id_item: Number(id) },
         data: {
           ...dadosValidados,
-          imagemCorpo: urlCorpo,
-          imagemRosto: urlRosto
-        }
+          urlImagem,
+        },
       });
 
       res.json(toJSON(atualizado));
@@ -166,7 +142,15 @@ const personagemController = {
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      await prisma.personagens.delete({ where: { id: Number(id) } });
+
+      if (!id || isNaN(Number(id))) {
+        return res.status(400).json({ error: "O parâmetro ID do item é obrigatório e deve ser um número válido." });
+      }
+
+      const atual = await prisma.itens.findUnique({ where: { id_item: Number(id) } });
+      if (!atual) return res.status(404).json({ error: "Item não encontrado" });
+
+      await prisma.itens.delete({ where: { id_item: Number(id) } });
       res.status(204).send();
     } catch (error) {
       handleError(error, res);
@@ -174,4 +158,4 @@ const personagemController = {
   }
 };
 
-export default personagemController;
+export default itensController;
