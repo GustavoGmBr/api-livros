@@ -49,27 +49,29 @@ const itensController = {
     }
   },
 
-  async store(req, res) {
+ async store(req, res) {
     try {
-      // Validação dos dados textuais
-      const dadosValidados = itemSchema.parse(req.body);
+      // 1º Criamos uma cópia do body para manipular as strings complexas
+      const corpoFormatado = { ...req.body };
 
-      if (req.body.listaHabilidades) {
-        dadosValidados.listaHabilidades =
-          typeof req.body.listaHabilidades === "string"
-            ? JSON.parse(req.body.listaHabilidades)
-            : req.body.listaHabilidades;
+      if (corpoFormatado.listaHabilidades) {
+        corpoFormatado.listaHabilidades =
+          typeof corpoFormatado.listaHabilidades === "string"
+            ? JSON.parse(corpoFormatado.listaHabilidades)
+            : corpoFormatado.listaHabilidades;
       }
 
-      if (req.body.usuarios) {
-        dadosValidados.usuarios =
-          typeof req.body.usuarios === "string"
-            ? JSON.parse(req.body.usuarios)
-            : req.body.usuarios;
+      if (corpoFormatado.usuarios) {
+        corpoFormatado.usuarios =
+          typeof corpoFormatado.usuarios === "string"
+            ? JSON.parse(corpoFormatado.usuarios)
+            : corpoFormatado.usuarios;
       }
+
+      // 2º Agora sim validamos no Zod com os tipos já convertidos!
+      const dadosValidados = itemSchema.parse(corpoFormatado);
 
       let urlImagem = null;
-
       if (req.file) {
         const nomeLimpo = dadosValidados.nome ? dadosValidados.nome.replace(/\s+/g, "_") : "item";
         urlImagem = await ftpService.uploadFile(req.file, "itens", nomeLimpo);
