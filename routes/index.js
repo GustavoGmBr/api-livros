@@ -30,6 +30,10 @@ import formapublic from './public/personagemForma.routes.js';
 import formaprivate from './private/personagemForma.routes.js';
 
 // import Racas
+import historicoPublic from './public/historico.routes.js';
+import historicoPrivate from './private/historico.routes.js';
+
+// import Racas
 import racaspublic from './public/racas.routes.js';
 import racasprivate from './private/racas.routes.js';
 
@@ -66,6 +70,10 @@ router.use('/private/racas', racasprivate);
 // 🧑 personagem
 router.use('/personagens', personagempublic);
 router.use('/private/personagens', personagemprivate);
+
+// ⏱️ Historico
+router.use('/historicos', historicoPublic);
+router.use('/private/historicos', historicoPrivate);
 
 // ⚔️ itens
 router.use('/itens', itensPublic);
