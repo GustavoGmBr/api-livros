@@ -41,6 +41,9 @@ import racasprivate from './private/racas.routes.js';
 import sistemapublic from './public/sistema.routes.js';
 import sistemaprivate from './private/sistema.routes.js';
 
+// import Racas
+import inventariopublic from './public/inventario.routes.js';
+import inventarioprivate from './private/inventario.routes.js';
 
 const router = Router();
 
@@ -87,5 +90,8 @@ router.use('/private/formas', formaprivate);
 router.use('/sistemas', sistemapublic);
 router.use('/private/sistemas', sistemaprivate);
 
+// 🖥️ inventario
+router.use('/inventarios', inventariopublic);
+router.use('/private/inventarios', inventarioprivate);
 
 export default router;

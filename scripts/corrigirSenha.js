@@ -4,8 +4,8 @@ import bcrypt from 'bcrypt'
 const prisma = new PrismaClient()
 
 async function main() {
-  const login = 'gustavoadm'
-  const novaSenha = '*A552408s'
+  const login = 'nicolas'
+  const novaSenha = 'nico12356'
 
   const hash = await bcrypt.hash(novaSenha, 10)
 

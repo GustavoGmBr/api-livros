@@ -162,6 +162,7 @@ model inventarios {
   descricao    String?              @db.Text
   tipo         String?              @db.VarChar(100)
   subtipo      String?              @db.VarChar(100)
+  grau         String?              @db.VarChar(100)
   quantidade   Decimal              @default(0.00) @db.Decimal(18, 2)
   itensId_item Int?
   historico    personagem_historico @relation(fields: [historico_id], references: [id], onDelete: Cascade)
