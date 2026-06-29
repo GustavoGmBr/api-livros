@@ -23,27 +23,13 @@ const inventarioController = {
       const hId = Number(historicoId);
       
       // Busca itens do histórico específico
-      let items = await prisma.inventarios.findMany({
+      const items = await prisma.inventarios.findMany({
         where: { historico_id: hId },
         orderBy: { nome: 'asc' }
       });
 
-      // 🔥 CRIA MOEDA PADRÃO SE NÃO EXISTIR
-      const temMoeda = items.some(item => item.tipo === 'Moeda');
-      if (!temMoeda) {
-        const novaMoeda = await prisma.inventarios.create({
-          data: {
-            nome: 'Aether',
-            tipo: 'Moeda',
-            quantidade: 0,
-            historico_id: hId,
-            subtipo: 'Dinheiro',
-            descricao: 'Dinheiro usado na dimensão de Aetheris'
-          }
-        });
-        items.push(novaMoeda);
-        items.sort((a, b) => a.nome.localeCompare(b.nome));
-      }
+      // ❌ REMOVIDO: Criação automática da moeda padrão
+      // Agora retorna apenas os itens existentes (pode ser array vazio)
 
       res.json(items);
     } catch (error) {
@@ -250,22 +236,6 @@ const inventarioController = {
 
       if (!itemExistente) {
         return res.status(404).json({ error: 'Item não encontrado' });
-      }
-
-      // 🔥 Impede deletar a moeda padrão se for a única moeda
-      if (itemExistente.tipo === 'Moeda') {
-        const moedas = await prisma.inventarios.findMany({
-          where: {
-            historico_id: itemExistente.historico_id,
-            tipo: 'Moeda'
-          }
-        });
-
-        if (moedas.length === 1 && moedas[0].id === itemId) {
-          return res.status(400).json({
-            error: 'Não é possível deletar a única moeda do inventário'
-          });
-        }
       }
 
       await prisma.inventarios.delete({
