@@ -1,191 +1,274 @@
-import prisma from '../lib/prisma.js';
-import { inventarioSchema } from '../validator/inventario.validator.js';
-import { ZodError } from 'zod';
+import { useState, useCallback, useEffect } from 'react';
+import api from '../../../services/api';
 
-const inventarioController = {
-  async index(req, res) {
-    try {
-      const { historicoId } = req.query;
+export const useGerenciarInventario = (overrideHistoryId = null) => {
+  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [historicoId, setHistoricoId] = useState(overrideHistoryId);
+  const [error, setError] = useState(null);
 
-      if (!historicoId) {
-        const items = await prisma.inventarios.findMany({ 
-          orderBy: { nome: 'asc' } 
-        });
-        return res.json(items);
-      }
-
-      const hId = Number(historicoId);
-      let items = await prisma.inventarios.findMany({
-        where: { historico_id: hId },
-        orderBy: { nome: 'asc' }
-      });
-
-      // Cria moeda padrão se não existir
-      const temMoeda = items.some(item => item.tipo === 'Moeda');
-      if (!temMoeda) {
-        const novaMoeda = await prisma.inventarios.create({
-          data: {
-            nome: 'Aether',
-            tipo: 'Moeda',
-            quantidade: 0,
-            historico_id: hId,
-            subtipo: 'Dinheiro',
-            descricao: 'Dinheiro usado na dimensão de Aetheris'
-          }
-        });
-        items.push(novaMoeda);
-        items.sort((a, b) => a.nome.localeCompare(b.nome));
-      }
-
-      res.json(items);
-    } catch (error) {
-      handleErrors(res, error, "index");
+  // Carregar inventário - CORRIGIDO
+  const loadInventory = useCallback(async (id) => {
+    if (!id) {
+      setInventory([]);
+      setLoading(false);
+      return [];
     }
-  },
-
-  async store(req, res) {
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      const data = inventarioSchema.parse(req.body);
-
-      // Verifica se já existe um item com mesmo nome, tipo e subtipo no mesmo histórico
-      const itemExistente = await prisma.inventarios.findFirst({
-        where: {
-          historico_id: data.historico_id,
-          nome: data.nome,
-          tipo: data.tipo,
-          subtipo: data.subtipo
-        }
+      console.log(`📦 Carregando inventário para historicoId: ${id}`);
+      
+      // ✅ Usar /inventarios com parâmetro historicoId
+      const response = await api.get('/inventarios', { 
+        params: { historicoId: id } 
       });
-
-      if (itemExistente) {
-        const novaQuantidade = Number(itemExistente.quantidade) + data.quantidade;
-        const atualizado = await prisma.inventarios.update({
-          where: { id: itemExistente.id },
-          data: {
-            quantidade: novaQuantidade,
-            descricao: data.descricao || itemExistente.descricao
-          }
-        });
-        return res.json(atualizado);
-      }
-
-      const novoItem = await prisma.inventarios.create({ data });
-      res.status(201).json(novoItem);
+      
+      console.log('📦 Resposta do servidor:', response.data);
+      
+      // Garantir que data seja um array
+      const items = Array.isArray(response.data) ? response.data : [];
+      console.log(`✅ Inventário carregado: ${items.length} itens`);
+      
+      setInventory(items);
+      return items;
     } catch (error) {
-      handleErrors(res, error, "store");
+      console.error('❌ Erro ao carregar inventário:', error);
+      
+      // Se for 404, significa que a rota não existe
+      if (error.response?.status === 404) {
+        console.error('🔴 Rota /inventarios não encontrada! Verifique:');
+        console.error('  1. Se o backend está rodando');
+        console.error('  2. Se a rota está registrada corretamente');
+        console.error('  3. Se o prefixo /api está sendo usado');
+        setError('Rota de inventário não encontrada. Verifique o backend.');
+      }
+      
+      // Se for 500, erro no servidor
+      if (error.response?.status === 500) {
+        setError('Erro interno no servidor ao carregar inventário');
+      }
+      
+      setInventory([]);
+      return [];
+    } finally {
+      setLoading(false);
     }
-  },
+  }, []);
 
-  async show(req, res) {
+  // Carregar quando historicoId mudar
+  useEffect(() => {
+    if (overrideHistoryId) {
+      setHistoricoId(overrideHistoryId);
+      loadInventory(overrideHistoryId);
+    }
+  }, [overrideHistoryId, loadInventory]);
+
+  // Handlers
+  const handleItemClick = useCallback((item) => {
+    setSelectedItem(prev => prev?.id === item?.id ? null : item);
+  }, []);
+
+  const isSelected = useCallback((item) => {
+    return selectedItem?.id === item?.id;
+  }, [selectedItem]);
+
+  const getQuantityDisplay = useCallback((qty) => {
+    return Math.round(qty || 0);
+  }, []);
+
+  // Salvar/Atualizar item
+  const handleSave = useCallback(async (itemData, isQuickAction = false) => {
     try {
-      const { id } = req.params;
-      const itemId = Number(id);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
 
-      if (isNaN(itemId)) {
-        return res.status(400).json({ error: "ID inválido" });
+      // 🔥 Remover campos undefined
+      const cleanData = {
+        nome: itemData.nome,
+        tipo: itemData.tipo,
+        quantidade: Number(itemData.quantidade) || 0,
+        subtipo: itemData.subtipo || '',
+        descricao: itemData.descricao || '',
+        historico_id: Number(historicoId)
+      };
+
+      // Validar dados obrigatórios
+      if (!cleanData.nome || !cleanData.tipo) {
+        alert('Nome e Tipo são obrigatórios!');
+        return null;
       }
 
-      const item = await prisma.inventarios.findUnique({
-        where: { id: itemId },
-        include: {
-          historico: true,
-          itens: true
-        }
-      });
-
-      if (!item) {
-        return res.status(404).json({ error: 'Registro no inventário não encontrado' });
+      if (!cleanData.historico_id) {
+        alert('Histórico ID é obrigatório!');
+        return null;
       }
 
-      res.json(item);
-    } catch (error) {
-      handleErrors(res, error, "show");
-    }
-  },
+      console.log('💾 Salvando item:', cleanData);
 
-  async update(req, res) {
-    try {
-      const { id } = req.params;
-      const data = inventarioSchema.parse(req.body);
-
-      const itemInventario = await prisma.inventarios.update({
-        where: { id: Number(id) },
-        data
-      });
-
-      res.json(itemInventario);
-    } catch (error) {
-      handleErrors(res, error, "update");
-    }
-  },
-
-  async updateDinheiro(req, res) {
-    try {
-      const { id } = req.params;
-      const { operacao, valor } = req.body;
-
-      const itemExistente = await prisma.inventarios.findUnique({
-        where: { id: Number(id) }
-      });
-
-      if (!itemExistente || itemExistente.tipo !== 'Moeda') {
-        return res.status(400).json({ error: 'Registro de Moeda inválido' });
-      }
-
-      let novaQuantidade = Number(itemExistente.quantidade);
-      const valorAlteracao = Number(valor);
-
-      if (operacao === 'adicionar' || operacao === 'somar') {
-        novaQuantidade += valorAlteracao;
-      } else if (operacao === 'remover' || operacao === 'subtrair') {
-        if (novaQuantidade < valorAlteracao) {
-          return res.status(400).json({ error: 'Saldo insuficiente' });
-        }
-        novaQuantidade -= valorAlteracao;
-      } else if (operacao === 'fixo') {
-        novaQuantidade = valorAlteracao;
+      let response;
+      if (itemData.id) {
+        // ✅ PUT /private/inventarios/:id
+        response = await api.put(`/private/inventarios/${itemData.id}`, cleanData, config);
       } else {
-        return res.status(400).json({ error: 'Operação inválida' });
+        // ✅ POST /private/inventarios
+        response = await api.post('/private/inventarios', cleanData, config);
       }
 
-      const atualizado = await prisma.inventarios.update({
-        where: { id: Number(id) },
-        data: { quantidade: novaQuantidade }
+      const data = response.data;
+      console.log('✅ Item salvo:', data);
+      
+      // Atualizar lista local
+      setInventory(prev => {
+        if (itemData.id) {
+          return prev.map(item => item.id === data.id ? data : item);
+        } else {
+          return [...prev, data];
+        }
       });
-
-      res.json(atualizado);
+      
+      if (!itemData.id) {
+        setSelectedItem(data);
+      }
+      
+      return data;
     } catch (error) {
-      handleErrors(res, error, "updateDinheiro");
+      console.error('❌ Erro ao salvar item:', error);
+      
+      const errorMsg = error.response?.data?.error || 
+                       error.response?.data?.message || 
+                       'Erro ao salvar item. Verifique os dados e tente novamente.';
+      alert(errorMsg);
+      throw error;
     }
-  },
+  }, [historicoId]);
 
-  async destroy(req, res) {
+  // Atualizar dinheiro
+  const handleUpdateDinheiro = useCallback(async (itemId, operacao, valor) => {
     try {
-      const { id } = req.params;
-      await prisma.inventarios.delete({
-        where: { id: Number(id) }
-      });
-      res.status(204).send();
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
+
+      console.log(`💰 Atualizando dinheiro: item=${itemId}, operacao=${operacao}, valor=${valor}`);
+
+      // ✅ PATCH /private/inventarios/:id/dinheiro
+      const { data } = await api.patch(
+        `/private/inventarios/${itemId}/dinheiro`,
+        { operacao, valor: Number(valor) },
+        config
+      );
+
+      console.log('✅ Dinheiro atualizado:', data);
+
+      setInventory(prev => prev.map(item => item.id === data.id ? data : item));
+      return data;
     } catch (error) {
-      handleErrors(res, error, "destroy");
+      console.error('❌ Erro ao atualizar dinheiro:', error);
+      alert(error.response?.data?.error || 'Erro ao atualizar valor');
+      throw error;
     }
-  }
+  }, []);
+
+  // Deletar item
+  const handleDeleteItem = useCallback(async (itemId) => {
+    if (!window.confirm('Deseja remover este item do inventário?')) return;
+    
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
+
+      console.log(`🗑️ Deletando item: ${itemId}`);
+
+      // ✅ DELETE /private/inventarios/:id
+      await api.delete(`/private/inventarios/${itemId}`, config);
+      
+      console.log('✅ Item deletado');
+      
+      setInventory(prev => prev.filter(item => item.id !== itemId));
+      if (selectedItem?.id === itemId) setSelectedItem(null);
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao deletar item:', error);
+      alert(error.response?.data?.error || 'Erro ao deletar item');
+      return false;
+    }
+  }, [selectedItem]);
+
+  // Deletar inventário inteiro
+  const deleteInventory = useCallback(async (historyId) => {
+    if (!window.confirm('⚠️ ATENÇÃO: Isso irá excluir TODOS os itens deste inventário. Esta ação é irreversível. Deseja continuar?')) {
+      return false;
+    }
+    
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
+
+      // Buscar todos os itens do histórico
+      const items = await loadInventory(historyId);
+      
+      if (items && items.length > 0) {
+        // Deletar cada item individualmente
+        for (const item of items) {
+          await api.delete(`/private/inventarios/${item.id}`, config);
+        }
+        setInventory([]);
+        setSelectedItem(null);
+        console.log('✅ Inventário deletado completamente');
+        return true;
+      } else {
+        alert('Nenhum item encontrado para excluir.');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao deletar inventário:', error);
+      alert(error.response?.data?.error || 'Erro ao deletar inventário');
+      return false;
+    }
+  }, [loadInventory]);
+
+  // Ação do botão flutuante
+  const handleAction = useCallback(() => {
+    if (selectedItem) {
+      return selectedItem;
+    } else {
+      return null;
+    }
+  }, [selectedItem]);
+
+  // Buscar item específico
+  const fetchItem = useCallback(async (itemId) => {
+    try {
+      console.log(`🔍 Buscando item: ${itemId}`);
+      // ✅ GET /inventarios/:id
+      const { data } = await api.get(`/inventarios/${itemId}`);
+      return data;
+    } catch (error) {
+      console.error('❌ Erro ao buscar item:', error);
+      return null;
+    }
+  }, []);
+
+  return {
+    inventory,
+    loading,
+    selectedItem,
+    historicoId,
+    setHistoricoId,
+    loadInventory,
+    handleItemClick,
+    getQuantityDisplay,
+    isSelected,
+    handleAction,
+    handleSave,
+    handleUpdateDinheiro,
+    handleDeleteItem,
+    deleteInventory,
+    setSelectedItem,
+    fetchItem,
+    error
+  };
 };
-
-function handleErrors(res, error, context) {
-  if (error instanceof ZodError) {
-    return res.status(400).json({ 
-      error: "Dados inválidos", 
-      detalhes: error.errors 
-    });
-  }
-  if (error.code === 'P2025') {
-    return res.status(404).json({ 
-      error: 'Registro no inventário não encontrado' 
-    });
-  }
-  console.error(`❌ Erro Prisma (Inventário - ${context}):`, error);
-  return res.status(500).json({ error: 'Erro interno no servidor' });
-}
-
-export default inventarioController;
