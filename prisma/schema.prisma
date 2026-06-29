@@ -154,10 +154,11 @@ model personagem_forma {
   @@index([sistema_id])
   @@map("personagem_formas")
 }
+// schema.prisma
 
 model inventarios {
   id           Int                  @id @default(autoincrement())
-  historico_id Int
+  capitulo_id  Int                  // 🔥 Mudança: historico_id -> capitulo_id
   nome         String               @db.VarChar(255)
   descricao    String?              @db.Text
   tipo         String?              @db.VarChar(100)
@@ -165,10 +166,10 @@ model inventarios {
   grau         String?              @db.VarChar(100)
   quantidade   Decimal              @default(0.00) @db.Decimal(18, 2)
   itensId_item Int?
-  historico    personagem_historico @relation(fields: [historico_id], references: [id], onDelete: Cascade)
+  capitulo     capitulos            @relation(fields: [capitulo_id], references: [id], onDelete: Cascade)
   itens        itens?               @relation(fields: [itensId_item], references: [id_item])
 
-  @@index([historico_id], map: "inventarios_historico_id_fkey")
+  @@index([capitulo_id], map: "inventarios_capitulo_id_fkey")
   @@index([itensId_item], map: "inventarios_itensId_item_fkey")
   @@map("inventarios")
 }
