@@ -51,26 +51,37 @@ const inventarioController = {
 
   // server/controllers/inventario.controller.js
 
-  // 🔥 Criar moeda padrão para um capítulo
+  // 🔥 Criar moeda padrão para um capítulo - COM LOGS DETALHADOS
   async criarMoedaPadrao(req, res) {
     try {
-      console.log('🔍 Iniciando criarMoedaPadrao');
-      console.log('📦 Body recebido:', req.body);
+      console.log('========================================');
+      console.log('🚀 INICIANDO criarMoedaPadrao');
+      console.log('📦 Body recebido:', JSON.stringify(req.body, null, 2));
+      console.log('📦 Headers:', req.headers);
 
       const { capitulo_id } = req.body;
+      console.log('📝 capitulo_id recebido:', capitulo_id, 'Tipo:', typeof capitulo_id);
 
+      // Validação manual
       if (!capitulo_id) {
         console.log('❌ capitulo_id não fornecido');
         return res.status(400).json({ error: 'capitulo_id é obrigatório' });
       }
 
-      console.log('💰 Criando moeda padrão para capitulo_id:', capitulo_id);
+      const cId = Number(capitulo_id);
+      console.log(`📝 capitulo_id convertido para número: ${cId}, Tipo: ${typeof cId}`);
 
-      // Validar com Zod
+      if (isNaN(cId) || cId <= 0) {
+        console.log('❌ capitulo_id inválido:', cId);
+        return res.status(400).json({ error: 'capitulo_id deve ser um número positivo' });
+      }
+
+      // PASSO 1: Validar com Zod
+      console.log('🔍 PASSO 1 - Validando com Zod...');
       let data;
       try {
-        data = moedaPadraoSchema.parse({ capitulo_id: Number(capitulo_id) });
-        console.log('✅ Validação Zod passou:', data);
+        data = moedaPadraoSchema.parse({ capitulo_id: cId });
+        console.log('✅ Validação Zod passou:', JSON.stringify(data, null, 2));
       } catch (zodError) {
         console.log('❌ Erro na validação Zod:', zodError);
         return res.status(400).json({
@@ -79,62 +90,110 @@ const inventarioController = {
         });
       }
 
-      // Verificar se o capítulo existe
-      console.log(`🔍 Verificando se capítulo ${data.capitulo_id} existe...`);
-      const capitulo = await prisma.capitulos.findUnique({
-        where: { id: data.capitulo_id }
-      });
+      // PASSO 2: Verificar se o capítulo existe
+      console.log(`🔍 PASSO 2 - Verificando se capítulo ${data.capitulo_id} existe...`);
+      let capitulo;
+      try {
+        capitulo = await prisma.capitulos.findUnique({
+          where: { id: data.capitulo_id }
+        });
+        console.log('📝 Resultado da busca:', capitulo ? 'Encontrado' : 'Não encontrado');
+      } catch (dbError) {
+        console.error('❌ Erro ao buscar capítulo no banco:', dbError);
+        return res.status(500).json({
+          error: 'Erro ao verificar capítulo',
+          message: dbError.message
+        });
+      }
 
       if (!capitulo) {
         console.log('❌ Capítulo não encontrado:', data.capitulo_id);
-        return res.status(404).json({ error: 'Capítulo não encontrado' });
+        return res.status(404).json({ error: `Capítulo ${data.capitulo_id} não encontrado` });
       }
-      console.log('✅ Capítulo encontrado:', capitulo.id);
+      console.log(`✅ Capítulo encontrado: ID=${capitulo.id}, Título=${capitulo.titulo}`);
 
-      // Verificar se já existe uma moeda para este capítulo
-      console.log(`🔍 Verificando se já existe moeda para capítulo ${data.capitulo_id}...`);
-      const moedaExistente = await prisma.inventarios.findFirst({
-        where: {
-          capitulo_id: data.capitulo_id,
-          tipo: 'Moeda'
-        }
-      });
+      // PASSO 3: Verificar se já existe moeda
+      console.log(`🔍 PASSO 3 - Verificando se já existe moeda para capítulo ${data.capitulo_id}...`);
+      let moedaExistente;
+      try {
+        moedaExistente = await prisma.inventarios.findFirst({
+          where: {
+            capitulo_id: data.capitulo_id,
+            tipo: 'Moeda'
+          }
+        });
+        console.log('📝 Resultado da busca:', moedaExistente ? 'Moeda encontrada' : 'Nenhuma moeda encontrada');
+      } catch (dbError) {
+        console.error('❌ Erro ao verificar moeda existente:', dbError);
+        return res.status(500).json({
+          error: 'Erro ao verificar moeda existente',
+          message: dbError.message
+        });
+      }
 
       if (moedaExistente) {
-        console.log('⚠️ Moeda já existe para este capítulo:', moedaExistente.id);
+        console.log(`⚠️ Moeda já existe: ID=${moedaExistente.id}, Nome=${moedaExistente.nome}`);
         return res.status(409).json({
           error: 'Este capítulo já possui uma moeda padrão',
           moeda: moedaExistente
         });
       }
 
-      // Criar a moeda padrão
-      console.log('📝 Criando moeda padrão...');
-      const novaMoeda = await prisma.inventarios.create({
-        data: {
-          capitulo_id: data.capitulo_id,
-          nome: data.nome || 'Aether',
-          tipo: 'Moeda',
-          quantidade: data.quantidade || 0,
-          subtipo: data.subtipo || 'Dinheiro',
-          descricao: data.descricao || 'Dinheiro usado na dimensão de Aetheris'
-        }
+      // PASSO 4: Criar a moeda
+      console.log(`📝 PASSO 4 - Criando moeda padrão para capítulo ${data.capitulo_id}...`);
+      console.log('📝 Dados para criação:', {
+        capitulo_id: data.capitulo_id,
+        nome: data.nome || 'Aether',
+        tipo: 'Moeda',
+        quantidade: data.quantidade || 0,
+        subtipo: data.subtipo || 'Dinheiro',
+        descricao: data.descricao || 'Dinheiro usado na dimensão de Aetheris'
       });
 
-      console.log('✅ Moeda padrão criada:', novaMoeda.id);
-      res.status(201).json(novaMoeda);
-    } catch (error) {
-      console.error('❌ Erro CRÍTICO ao criar moeda padrão:');
-      console.error('📋 Mensagem:', error.message);
-      console.error('📋 Stack:', error.stack);
-      console.error('📋 Código:', error.code);
+      let novaMoeda;
+      try {
+        novaMoeda = await prisma.inventarios.create({
+          data: {
+            capitulo_id: data.capitulo_id,
+            nome: data.nome || 'Aether',
+            tipo: 'Moeda',
+            quantidade: data.quantidade || 0,
+            subtipo: data.subtipo || 'Dinheiro',
+            descricao: data.descricao || 'Dinheiro usado na dimensão de Aetheris'
+          }
+        });
+        console.log('✅ Moeda criada com sucesso:', JSON.stringify(novaMoeda, null, 2));
+      } catch (dbError) {
+        console.error('❌ Erro ao criar moeda no banco:');
+        console.error('📋 Mensagem:', dbError.message);
+        console.error('📋 Código:', dbError.code);
+        console.error('📋 Meta:', dbError.meta);
+        console.error('📋 Stack:', dbError.stack);
 
-      // Verificar se é erro do Prisma
-      if (error.code) {
-        console.error('📋 Código Prisma:', error.code);
+        return res.status(500).json({
+          error: 'Erro ao criar moeda padrão no banco de dados',
+          message: dbError.message,
+          code: dbError.code,
+          meta: dbError.meta
+        });
       }
 
-      handleErrors(res, error, "criarMoedaPadrao");
+      console.log('✅ FINALIZADO com sucesso!');
+      console.log('========================================');
+      res.status(201).json(novaMoeda);
+
+    } catch (error) {
+      console.error('❌❌❌ ERRO GERAL em criarMoedaPadrao:');
+      console.error('📋 Mensagem:', error.message);
+      console.error('📋 Stack:', error.stack);
+      console.error('📋 Nome do erro:', error.name);
+      console.error('========================================');
+
+      return res.status(500).json({
+        error: 'Erro interno no servidor',
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   },
 
