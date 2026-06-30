@@ -28,9 +28,9 @@ const inventarioController = {
         console.log('❌ capituloId inválido:', capituloId);
         return res.status(400).json({ error: "capituloId inválido" });
       }
-      
+
       console.log(`📦 Buscando inventários para capituloId: ${cId}`);
-      
+
       // 🔥 CORREÇÃO: Remove o include problemático
       const items = await prisma.inventarios.findMany({
         where: { capitulo_id: cId },
@@ -49,15 +49,38 @@ const inventarioController = {
     }
   },
 
+  // server/controllers/inventario.controller.js
+
   // 🔥 Criar moeda padrão para um capítulo
   async criarMoedaPadrao(req, res) {
     try {
+      console.log('🔍 Iniciando criarMoedaPadrao');
+      console.log('📦 Body recebido:', req.body);
+
       const { capitulo_id } = req.body;
-      
+
+      if (!capitulo_id) {
+        console.log('❌ capitulo_id não fornecido');
+        return res.status(400).json({ error: 'capitulo_id é obrigatório' });
+      }
+
       console.log('💰 Criando moeda padrão para capitulo_id:', capitulo_id);
 
-      const data = moedaPadraoSchema.parse({ capitulo_id: Number(capitulo_id) });
+      // Validar com Zod
+      let data;
+      try {
+        data = moedaPadraoSchema.parse({ capitulo_id: Number(capitulo_id) });
+        console.log('✅ Validação Zod passou:', data);
+      } catch (zodError) {
+        console.log('❌ Erro na validação Zod:', zodError);
+        return res.status(400).json({
+          error: "Dados inválidos",
+          detalhes: zodError.errors
+        });
+      }
 
+      // Verificar se o capítulo existe
+      console.log(`🔍 Verificando se capítulo ${data.capitulo_id} existe...`);
       const capitulo = await prisma.capitulos.findUnique({
         where: { id: data.capitulo_id }
       });
@@ -66,7 +89,10 @@ const inventarioController = {
         console.log('❌ Capítulo não encontrado:', data.capitulo_id);
         return res.status(404).json({ error: 'Capítulo não encontrado' });
       }
+      console.log('✅ Capítulo encontrado:', capitulo.id);
 
+      // Verificar se já existe uma moeda para este capítulo
+      console.log(`🔍 Verificando se já existe moeda para capítulo ${data.capitulo_id}...`);
       const moedaExistente = await prisma.inventarios.findFirst({
         where: {
           capitulo_id: data.capitulo_id,
@@ -75,13 +101,15 @@ const inventarioController = {
       });
 
       if (moedaExistente) {
-        console.log('⚠️ Moeda já existe para este capítulo');
-        return res.status(409).json({ 
+        console.log('⚠️ Moeda já existe para este capítulo:', moedaExistente.id);
+        return res.status(409).json({
           error: 'Este capítulo já possui uma moeda padrão',
           moeda: moedaExistente
         });
       }
 
+      // Criar a moeda padrão
+      console.log('📝 Criando moeda padrão...');
       const novaMoeda = await prisma.inventarios.create({
         data: {
           capitulo_id: data.capitulo_id,
@@ -96,7 +124,16 @@ const inventarioController = {
       console.log('✅ Moeda padrão criada:', novaMoeda.id);
       res.status(201).json(novaMoeda);
     } catch (error) {
-      console.error('❌ Erro ao criar moeda padrão:', error);
+      console.error('❌ Erro CRÍTICO ao criar moeda padrão:');
+      console.error('📋 Mensagem:', error.message);
+      console.error('📋 Stack:', error.stack);
+      console.error('📋 Código:', error.code);
+
+      // Verificar se é erro do Prisma
+      if (error.code) {
+        console.error('📋 Código Prisma:', error.code);
+      }
+
       handleErrors(res, error, "criarMoedaPadrao");
     }
   },
@@ -287,8 +324,8 @@ const inventarioController = {
           novaQuantidade = valorAlteracao;
           break;
         default:
-          return res.status(400).json({ 
-            error: 'Operação inválida. Use: adicionar, remover ou fixo' 
+          return res.status(400).json({
+            error: 'Operação inválida. Use: adicionar, remover ou fixo'
           });
       }
 
@@ -353,7 +390,7 @@ const inventarioController = {
       if (isNaN(cId)) {
         return res.status(400).json({ error: 'capituloId inválido' });
       }
-      
+
       const items = await prisma.inventarios.findMany({
         where: { capitulo_id: cId }
       });
@@ -362,7 +399,7 @@ const inventarioController = {
       const totalMoedas = items
         .filter(item => item.tipo === 'Moeda')
         .reduce((acc, curr) => acc + Number(curr.quantidade), 0);
-      
+
       const tipos = items.reduce((acc, item) => {
         const tipoKey = item.tipo || 'Sem Tipo';
         acc[tipoKey] = (acc[tipoKey] || 0) + 1;
@@ -397,7 +434,7 @@ const inventarioController = {
       if (isNaN(cId)) {
         return res.status(400).json({ error: 'ID do capítulo inválido' });
       }
-      
+
       const items = await prisma.inventarios.findMany({
         where: { capitulo_id: cId },
         take: 1
@@ -446,7 +483,7 @@ function handleErrors(res, error, context) {
   }
 
   console.error(`❌ Erro no Inventário (${context}):`, error);
-  
+
   return res.status(500).json({
     error: 'Erro interno no servidor',
     message: process.env.NODE_ENV === 'development' ? error.message : 'Ocorreu um erro inesperado',
