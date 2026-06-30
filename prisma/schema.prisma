@@ -226,3 +226,20 @@ model itens {
 
   @@map("itens")
 }
+model bestiario {
+  id                    Int      @id @default(autoincrement())
+  nome                  String   @db.VarChar(255)
+  descricao             String?  @db.Text
+  mundo                 String?  @db.VarChar(255)
+  ranque                String?
+  subnivel              Int      @default(1)
+  classificacao         String?
+  nivelMedio            Int      @default(1) @map("nivel_medio")
+  ponto_combate         Int      @default(0)
+  ponto_combateAetheris Int      @default(0)
+  imagemBestiario       String?  @map("imagem_bestiario")
+  criado_em             DateTime @default(now())
+  atualizado_em         DateTime @updatedAt
+
+  @@map("bestiario")
+}

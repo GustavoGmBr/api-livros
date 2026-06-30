@@ -45,6 +45,9 @@ import sistemaprivate from './private/sistema.routes.js';
 import inventariopublic from './public/inventario.routes.js';
 import inventarioprivate from './private/inventario.routes.js';
 
+// 🐲 import Bestiario
+import bestiariopublic from './public/bestiario.routes.js';
+import bestiarioprivate from './private/bestiario.routes.js';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -93,5 +96,9 @@ router.use('/private/sistemas', sistemaprivate);
 // 🖥️ inventario
 router.use('/inventarios', inventariopublic);
 router.use('/private/inventarios', inventarioprivate);
+
+// 🐲 Bestiário
+router.use('/bestiario', bestiariopublic);
+router.use('/private/bestiario', bestiarioprivate)
 
 export default router;

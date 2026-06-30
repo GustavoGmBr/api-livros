@@ -21,9 +21,10 @@ const upload = multer({
 export const uploadPersonagem = upload.single('personagem');
 export const uploadItem = upload.single('item');
 export const uploadLocal = upload.single('local'); 
+// 🐲 Novo: Upload de arquivo único para o Bestiário
+export const uploadBestiario = upload.single('bestiario'); 
 
-// ✅ Novo: Upload de múltiplos campos para a Forma Especial (.fields)
-// Permite enviar um arquivo no campo 'corpo' e outro no campo 'rosto'
+// Upload de múltiplos campos para a Forma Especial (.fields)
 export const uploadFormaEspecial = upload.fields([
   { name: 'corpo', maxCount: 1 },
   { name: 'rosto', maxCount: 1 }
