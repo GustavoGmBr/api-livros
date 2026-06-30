@@ -229,6 +229,7 @@ model itens {
 model bestiario {
   id                    Int      @id @default(autoincrement())
   nome                  String   @db.VarChar(255)
+  tipo                  String   @db.VarChar(100) // 🐲 Novo campo adicionado aqui
   descricao             String?  @db.Text
   mundo                 String?  @db.VarChar(255)
   ranque                String?

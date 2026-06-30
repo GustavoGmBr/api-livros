@@ -19,7 +19,10 @@ const handleError = (error, res) => {
 const bestiarioController = {
   async index(req, res) {
     try {
+      const { tipo } = req.query; // Permite buscar via: /api/bestiario?tipo=monstro
+
       const criaturas = await prisma.bestiario.findMany({
+        where: tipo ? { tipo: String(tipo) } : {}, // Filtra se o tipo for enviado na URL
         orderBy: { nome: 'asc' }
       });
 
