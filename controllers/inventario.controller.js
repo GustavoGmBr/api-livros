@@ -18,10 +18,6 @@ const inventarioController = {
         console.log('📦 Buscando todos os inventários');
         const items = await prisma.inventarios.findMany({
           orderBy: { nome: 'asc' },
-          include: {
-            itens: true
-            // 🔥 Remove o include do capitulo para evitar erro
-          }
         });
         console.log(`✅ Retornando ${items.length} itens`);
         return res.json(items);

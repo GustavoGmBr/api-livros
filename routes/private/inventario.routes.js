@@ -7,10 +7,13 @@ const router = Router();
 // Aplica middleware de autenticação em todas as rotas privadas
 router.use(authMiddleware);
 
+// 🔥 ROTA: Criar moeda padrão para um capítulo
+router.post('/moeda-padrao', inventarioController.criarMoedaPadrao);
+
 // Rotas privadas - operações de escrita e modificação
 router.post('/', inventarioController.store);
 router.put('/:id', inventarioController.update);
-router.patch('/:id/dinheiro', inventarioController.updateDinheiro); // Rota específica para atualizar dinheiro
+router.patch('/:id/dinheiro', inventarioController.updateDinheiro);
 router.delete('/:id', inventarioController.destroy);
 
 export default router;

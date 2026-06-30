@@ -5,6 +5,8 @@ const router = Router();
 
 // Rotas públicas - apenas leitura
 router.get('/', inventarioController.index);
+router.get('/stats', inventarioController.stats);
+router.get('/check/:capituloId', inventarioController.checkExists);
 router.get('/:id', inventarioController.show);
 
 export default router;
