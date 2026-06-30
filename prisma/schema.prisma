@@ -32,20 +32,21 @@ model livros {
 }
 
 model capitulos {
-  id                        Int                    @id @default(autoincrement())
-  livro_id                  Int
-  parent_id                 Int?
-  numero                    Int
-  titulo                    String
-  personagens_participantes Json?
-  formas_participantes      Json?
-  itens_participantes       Json?
-  locais_participantes      Json?
-  conteudo_json             Json?
-  livros                    livros                 @relation(fields: [livro_id], references: [id], onDelete: Cascade)
-  parent                    capitulos?             @relation("SubCapitulos", fields: [parent_id], references: [id], onDelete: Cascade)
-  children                  capitulos[]            @relation("SubCapitulos")
-  personagemHistoricos      personagem_historico[]
+  id                         Int                    @id @default(autoincrement())
+  livro_id                   Int
+  parent_id                  Int?
+  numero                     Int
+  titulo                     String
+  personagens_participantes  Json?
+  formas_participantes       Json?
+  itens_participantes        Json?
+  locais_participantes       Json?
+  conteudo_json              Json?
+  livros                     livros                 @relation(fields: [livro_id], references: [id], onDelete: Cascade)
+  parent                     capitulos?             @relation("SubCapitulos", fields: [parent_id], references: [id], onDelete: Cascade)
+  children                   capitulos[]            @relation("SubCapitulos")
+  personagemHistoricos       personagem_historico[]
+  inventarios                inventarios[]          // <-- Nova relação reversa adicionada aqui
 
   @@index([livro_id], map: "livro_id")
   @@index([parent_id], map: "parent_id")
@@ -95,7 +96,7 @@ model personagens {
 }
 
 model personagem_historico {
-  id                    Int           @id @default(autoincrement())
+  id                    Int          @id @default(autoincrement())
   personagem_id         Int
   livro_id              Int?
   capitulo_id           Int?
@@ -103,15 +104,15 @@ model personagem_historico {
   titulo                String?
   raca_id               Int
   ranque                String?
-  subnivel              Int           @default(1)
+  subnivel              Int          @default(1)
   classificacao         String?
-  nivel                 Int           @default(1)
-  xpAtual               Int           @default(0)
-  xpProximo             Int           @default(100)
-  qtd_treino            Int           @default(0)
-  ponto_combate         Int           @default(0)
-  ponto_combateAetheris Int           @default(0)
-  bonusPCErion          Int           @default(0)
+  nivel                 Int          @default(1)
+  xpAtual               Int          @default(0)
+  xpProximo             Int          @default(100)
+  qtd_treino            Int          @default(0)
+  ponto_combate         Int          @default(0)
+  ponto_combateAetheris Int          @default(0)
+  bonusPCErion          Int          @default(0)
   classes               String?
   estilo_luta           String?
   maestria              String?
@@ -119,12 +120,12 @@ model personagem_historico {
   equipamento           Json?
   habilidades           Json?
   formas_desbloqueadas  Json?
-  criado_em             DateTime      @default(now())
-  inventario            inventarios[]
-  capitulo              capitulos?    @relation(fields: [capitulo_id], references: [id])
-  livro                 livros?       @relation(fields: [livro_id], references: [id])
-  personagem            personagens   @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
-  raca                  racas         @relation(fields: [raca_id], references: [id])
+  criado_em             DateTime     @default(now())
+  // inventario removido daqui
+  capitulo              capitulos?   @relation(fields: [capitulo_id], references: [id])
+  livro                 livros?      @relation(fields: [livro_id], references: [id])
+  personagem            personagens  @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
+  raca                  racas        @relation(fields: [raca_id], references: [id])
 
   @@index([personagem_id])
   @@index([capitulo_id], map: "personagem_historico_capitulo_id_fkey")
@@ -154,20 +155,19 @@ model personagem_forma {
   @@index([sistema_id])
   @@map("personagem_formas")
 }
-// schema.prisma
 
 model inventarios {
-  id           Int                  @id @default(autoincrement())
-  capitulo_id  Int                  // 🔥 Mudança: historico_id -> capitulo_id
-  nome         String               @db.VarChar(255)
-  descricao    String?              @db.Text
-  tipo         String?              @db.VarChar(100)
-  subtipo      String?              @db.VarChar(100)
-  grau         String?              @db.VarChar(100)
-  quantidade   Decimal              @default(0.00) @db.Decimal(18, 2)
+  id           Int       @id @default(autoincrement())
+  capitulo_id  Int       // <-- Modificado de historico_id para capitulo_id
+  nome         String    @db.VarChar(255)
+  descricao    String?   @db.Text
+  tipo         String?   @db.VarChar(100)
+  subtipo      String?   @db.VarChar(100)
+  grau         String?   @db.VarChar(100)
+  quantidade   Decimal   @default(0.00) @db.Decimal(18, 2)
   itensId_item Int?
-  capitulo     capitulos            @relation(fields: [capitulo_id], references: [id], onDelete: Cascade)
-  itens        itens?               @relation(fields: [itensId_item], references: [id_item])
+  capitulo     capitulos @relation(fields: [capitulo_id], references: [id], onDelete: Cascade) // <-- Nova relação criada
+  itens        itens?    @relation(fields: [itensId_item], references: [id_item])
 
   @@index([capitulo_id], map: "inventarios_capitulo_id_fkey")
   @@index([itensId_item], map: "inventarios_itensId_item_fkey")

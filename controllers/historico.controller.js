@@ -4,20 +4,23 @@ import { ZodError } from 'zod';
 
 const store = async (req, res) => {
   try {
-    // 'rest' contém: equipamento, habilidades, elementos, formas_desbloqueadas, etc.
+    // Como o inventário agora pertence ao capítulo, removemos a inserção cascata aqui
     const { inventario, ...rest } = historicoSchema.parse(req.body);
 
     const historico = await prisma.personagem_historico.create({
       data: {
-        ...rest,
-        // O Prisma grava arrays/objetos diretamente como JSON
-        // E injeta a lista de inventário mapeada na tabela relacional
-        inventario: {
-          create: inventario && inventario.length > 0 ? inventario : []
-        }
+        ...rest
       },
       include: { 
-        inventario: true 
+        raca: true,
+        livro: true,
+        capitulo: {
+          include: {
+            inventarios: {
+              include: { itens: true }
+            }
+          }
+        }
       }
     });
 
@@ -34,25 +37,24 @@ const update = async (req, res) => {
   try {
     const { inventario, ...rest } = historicoSchema.parse(req.body);
 
-    const historico = await prisma.$transaction(async (tx) => {
-      // 1. Limpa o inventário antigo ligado a este histórico
-      await tx.inventarios.deleteMany({
-        where: { historico_id: historicoId }
-      });
-
-      // 2. Atualiza os dados do histórico e recria os itens do inventário de uma vez
-      return await tx.personagem_historico.update({
-        where: { id: historicoId },
-        data: {
-          ...rest,
-          inventario: {
-            create: inventario && inventario.length > 0 ? inventario : []
+    // Não precisamos mais de transação para apagar/recriar inventário aqui,
+    // pois o inventário agora é gerenciado pelo controller de inventários/capítulos.
+    const historico = await prisma.personagem_historico.update({
+      where: { id: historicoId },
+      data: {
+        ...rest
+      },
+      include: { 
+        raca: true,
+        livro: true,
+        capitulo: {
+          include: {
+            inventarios: {
+              include: { itens: true }
+            }
           }
-        },
-        include: { 
-          inventario: true 
         }
-      });
+      }
     });
 
     return res.json(historico);
@@ -69,9 +71,13 @@ const show = async (req, res) => {
       include: {
         raca: true,
         livro: true,
-        capitulo: true,
-        inventario: {
-          include: { itens: true }
+        // ✅ CORREÇÃO: O inventário agora é puxado de dentro de capitulo usando o plural correto (inventarios)
+        capitulo: {
+          include: {
+            inventarios: {
+              include: { itens: true }
+            }
+          }
         }
       }
     });
@@ -84,16 +90,24 @@ const show = async (req, res) => {
 };
 
 const timeline = async (req, res) => {
-  const { personagemId } = req.params;
+  const { personajeId } = req.params;
   try {
     const historicos = await prisma.personagem_historico.findMany({
-      where: { personagem_id: Number(personagemId) },
+      where: { personaje_id: Number(personagemId) },
       include: {
         raca: true,
         livro: { select: { titulo: true } },
-        capitulo: { select: { numero: true, titulo: true } },
-        inventario: {
-          include: { itens: { select: { nome: true } } }
+        // ✅ CORREÇÃO: Buscando os itens do inventário vinculados ao capítulo atual do histórico
+        capitulo: {
+          select: { 
+            numero: true, 
+            titulo: true,
+            inventarios: {
+              include: {
+                itens: { select: { nome: true } }
+              }
+            }
+          } 
         }
       },
       orderBy: { criado_em: 'desc' }

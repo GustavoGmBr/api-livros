@@ -9,64 +9,51 @@ const inventarioController = {
   // 📋 Listar inventários por capítulo
   async index(req, res) {
     try {
-      const { capituloId } = req.query; // 🔥 Mudança: historicoId -> capituloId
+      const { capituloId } = req.query;
 
-      // Se não tiver capituloId, retorna todos os itens
-      if (!capituloId) {
-        const items = await prisma.inventarios.findMany({
-          orderBy: { nome: 'asc' },
-          include: {
-            capitulo: {
+      // Objeto padrão de inclusão para evitar repetição de código
+      const defaultInclude = {
+        itens: true, // 📦 Traz as informações do item associado (id_item, nome original, etc.)
+        capitulo: {
+          select: {
+            id: true,
+            numero: true,
+            titulo: true,
+            livro: {
               select: {
                 id: true,
-                numero: true,
                 titulo: true,
-                livro: {
+                saga: {
                   select: {
                     id: true,
-                    titulo: true,
-                    saga: {
-                      select: {
-                        id: true,
-                        nome: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        });
-        return res.json(items);
-      }
-
-      const cId = Number(capituloId);
-      
-      // Busca itens do capítulo específico
-      const items = await prisma.inventarios.findMany({
-        where: { capitulo_id: cId },
-        orderBy: { nome: 'asc' },
-        include: {
-          capitulo: {
-            select: {
-              id: true,
-              numero: true,
-              titulo: true,
-              livro: {
-                select: {
-                  id: true,
-                  titulo: true,
-                  saga: {
-                    select: {
-                      id: true,
-                      nome: true
-                    }
+                    nome: true
                   }
                 }
               }
             }
           }
         }
+      };
+
+      // Se não tiver capituloId, retorna todos os itens do sistema
+      if (!capituloId) {
+        const items = await prisma.inventarios.findMany({
+          orderBy: { nome: 'asc' },
+          include: defaultInclude
+        });
+        return res.json(items);
+      }
+
+      const cId = Number(capituloId);
+      if (isNaN(cId)) {
+        return res.status(400).json({ error: "capituloId inválido" });
+      }
+      
+      // Busca itens do capítulo específico
+      const items = await prisma.inventarios.findMany({
+        where: { capitulo_id: cId },
+        orderBy: { nome: 'asc' },
+        include: defaultInclude
       });
 
       res.json(items);
@@ -80,8 +67,8 @@ const inventarioController = {
     try {
       const { capitulo_id } = req.body;
       
-      // Validar
-      const data = moedaPadraoSchema.parse({ capitulo_id });
+      // Validar via Zod
+      const data = moedaPadraoSchema.parse({ capitulo_id: Number(capitulo_id) });
 
       // Verificar se o capítulo existe
       const capitulo = await prisma.capitulos.findUnique({
@@ -111,11 +98,11 @@ const inventarioController = {
       const novaMoeda = await prisma.inventarios.create({
         data: {
           capitulo_id: data.capitulo_id,
-          nome: data.nome,
-          tipo: data.tipo,
-          quantidade: data.quantidade,
-          subtipo: data.subtipo,
-          descricao: data.descricao
+          nome: data.nome || 'Moedas de Ouro',
+          tipo: 'Moeda',
+          quantidade: data.quantidade || 0,
+          subtipo: data.subtipo || 'Padrão',
+          descricao: data.descricao || 'Moeda corrente utilizada neste capítulo.'
         }
       });
 
@@ -125,14 +112,15 @@ const inventarioController = {
     }
   },
 
-  // ➕ Criar novo item
+  // ➕ Criar novo item ou somar quantidade se já existir
   async store(req, res) {
     try {
       const data = inventarioSchema.parse(req.body);
+      const cId = Number(data.capitulo_id);
 
       // Verificar se o capítulo existe
       const capitulo = await prisma.capitulos.findUnique({
-        where: { id: data.capitulo_id }
+        where: { id: cId }
       });
 
       if (!capitulo) {
@@ -142,7 +130,7 @@ const inventarioController = {
       // Verifica se já existe um item com mesmo nome, tipo e subtipo no mesmo capítulo
       const itemExistente = await prisma.inventarios.findFirst({
         where: {
-          capitulo_id: data.capitulo_id,
+          capitulo_id: cId,
           nome: data.nome,
           tipo: data.tipo,
           subtipo: data.subtipo
@@ -151,7 +139,7 @@ const inventarioController = {
 
       // Se existir, soma a quantidade
       if (itemExistente) {
-        const novaQuantidade = Number(itemExistente.quantidade) + Number(data.quantidade);
+        const novaQuantidade = Number(itemExistente.quantidade) + (Number(data.quantidade) || 0);
         const atualizado = await prisma.inventarios.update({
           where: { id: itemExistente.id },
           data: {
@@ -162,15 +150,16 @@ const inventarioController = {
         return res.json(atualizado);
       }
 
-      // Cria novo item
+      // Cria novo item do inventário vinculado ao capítulo
       const novoItem = await prisma.inventarios.create({
         data: {
-          capitulo_id: data.capitulo_id,
+          capitulo_id: cId,
           nome: data.nome,
           tipo: data.tipo || '',
           quantidade: Number(data.quantidade) || 0,
           subtipo: data.subtipo || '',
-          descricao: data.descricao || ''
+          descricao: data.descricao || '',
+          itensId_item: data.itensId_item ? Number(data.itensId_item) : null
         }
       });
 
@@ -180,7 +169,7 @@ const inventarioController = {
     }
   },
 
-  // 🔍 Buscar item específico
+  // 🔍 Buscar registro de inventário específico por ID
   async show(req, res) {
     try {
       const { id } = req.params;
@@ -193,6 +182,7 @@ const inventarioController = {
       const item = await prisma.inventarios.findUnique({
         where: { id: itemId },
         include: {
+          itens: true, // 📦 Inclui dados do item global
           capitulo: {
             select: {
               id: true,
@@ -225,30 +215,36 @@ const inventarioController = {
     }
   },
 
-  // ✏️ Atualizar item
+  // ✏️ Atualizar item completo
   async update(req, res) {
     try {
       const { id } = req.params;
+      const itemId = Number(id);
       const data = inventarioSchema.parse(req.body);
+
+      if (isNaN(itemId)) {
+        return res.status(400).json({ error: "ID do inventário inválido" });
+      }
 
       // Verifica se o item existe
       const itemExistente = await prisma.inventarios.findUnique({
-        where: { id: Number(id) }
+        where: { id: itemId }
       });
 
       if (!itemExistente) {
-        return res.status(404).json({ error: 'Item não encontrado' });
+        return res.status(404).json({ error: 'Item não encontrado no inventário' });
       }
 
       const itemAtualizado = await prisma.inventarios.update({
-        where: { id: Number(id) },
+        where: { id: itemId },
         data: {
-          capitulo_id: data.capitulo_id,
+          capitulo_id: Number(data.capitulo_id),
           nome: data.nome,
           tipo: data.tipo || '',
           quantidade: Number(data.quantidade) || 0,
           subtipo: data.subtipo || '',
-          descricao: data.descricao || ''
+          descricao: data.descricao || '',
+          itensId_item: data.itensId_item ? Number(data.itensId_item) : null
         }
       });
 
@@ -258,21 +254,23 @@ const inventarioController = {
     }
   },
 
-  // 💰 Atualizar dinheiro
+  // 💰 Atualizar dinheiro (somar, subtrair ou definir valor fixo)
   async updateDinheiro(req, res) {
     try {
       const { id } = req.params;
+      const itemId = Number(id);
       const { operacao, valor } = req.body;
 
-      // Validações básicas
+      if (isNaN(itemId)) {
+        return res.status(400).json({ error: 'ID inválido' });
+      }
+
       if (!operacao || valor === undefined || valor === null) {
-        return res.status(400).json({ 
-          error: 'Operação e valor são obrigatórios' 
-        });
+        return res.status(400).json({ error: 'Operação e valor são obrigatórios' });
       }
 
       const itemExistente = await prisma.inventarios.findUnique({
-        where: { id: Number(id) }
+        where: { id: itemId }
       });
 
       if (!itemExistente) {
@@ -280,15 +278,12 @@ const inventarioController = {
       }
 
       if (itemExistente.tipo !== 'Moeda') {
-        return res.status(400).json({ 
-          error: 'Este item não é uma moeda' 
-        });
+        return res.status(400).json({ error: 'Este item não é uma moeda' });
       }
 
       let novaQuantidade = Number(itemExistente.quantidade);
       const valorAlteracao = Number(valor);
 
-      // Processa a operação
       switch (operacao) {
         case 'adicionar':
         case 'somar':
@@ -297,17 +292,13 @@ const inventarioController = {
         case 'remover':
         case 'subtrair':
           if (novaQuantidade < valorAlteracao) {
-            return res.status(400).json({ 
-              error: 'Saldo insuficiente para esta operação' 
-            });
+            return res.status(400).json({ error: 'Saldo insuficiente para esta operação' });
           }
           novaQuantidade -= valorAlteracao;
           break;
         case 'fixo':
           if (valorAlteracao < 0) {
-            return res.status(400).json({ 
-              error: 'Valor não pode ser negativo' 
-            });
+            return res.status(400).json({ error: 'Valor não pode ser negativo' });
           }
           novaQuantidade = valorAlteracao;
           break;
@@ -318,7 +309,7 @@ const inventarioController = {
       }
 
       const atualizado = await prisma.inventarios.update({
-        where: { id: Number(id) },
+        where: { id: itemId },
         data: { quantidade: novaQuantidade }
       });
 
@@ -328,7 +319,7 @@ const inventarioController = {
     }
   },
 
-  // 🗑️ Deletar item
+  // 🗑️ Deletar item do inventário
   async destroy(req, res) {
     try {
       const { id } = req.params;
@@ -338,7 +329,6 @@ const inventarioController = {
         return res.status(400).json({ error: "ID inválido" });
       }
 
-      // Verifica se o item existe
       const itemExistente = await prisma.inventarios.findUnique({
         where: { id: itemId }
       });
@@ -363,10 +353,13 @@ const inventarioController = {
       const { capituloId } = req.query;
 
       if (!capituloId) {
-        return res.status(400).json({ error: 'capituloId é obrigatório' });
+        return res.status(400).json({ error: 'capituloId é obrigatório nos query params' });
       }
 
       const cId = Number(capituloId);
+      if (isNaN(cId)) {
+        return res.status(400).json({ error: 'capituloId inválido' });
+      }
       
       const items = await prisma.inventarios.findMany({
         where: { capitulo_id: cId }
@@ -378,7 +371,8 @@ const inventarioController = {
         .reduce((acc, curr) => acc + Number(curr.quantidade), 0);
       
       const tipos = items.reduce((acc, item) => {
-        acc[item.tipo] = (acc[item.tipo] || 0) + 1;
+        const tipoKey = item.tipo || 'Sem Tipo';
+        acc[tipoKey] = (acc[tipoKey] || 0) + 1;
         return acc;
       }, {});
 
@@ -393,16 +387,20 @@ const inventarioController = {
     }
   },
 
-  // 🔥 Verificar se capítulo tem inventário
+  // 🔥 Verificar se capítulo tem itens registrados no inventário
   async checkExists(req, res) {
     try {
-      const { capituloId } = req.params;
+      // Aceita tanto :capituloId quanto :id baseado na definição da sua rota express
+      const capituloId = req.params.capituloId || req.params.id;
 
       if (!capituloId) {
-        return res.status(400).json({ error: 'capituloId é obrigatório' });
+        return res.status(400).json({ error: 'ID do capítulo é obrigatório nos parâmetros da rota' });
       }
 
       const cId = Number(capituloId);
+      if (isNaN(cId)) {
+        return res.status(400).json({ error: 'ID do capítulo inválido' });
+      }
       
       const items = await prisma.inventarios.findMany({
         where: { capitulo_id: cId },
@@ -419,9 +417,8 @@ const inventarioController = {
   }
 };
 
-// 🛠️ Função para tratar erros
+// 🛠️ Função unificada para tratamento de erros
 function handleErrors(res, error, context) {
-  // Erro de validação do Zod
   if (error instanceof ZodError) {
     return res.status(400).json({
       error: "Dados inválidos",
@@ -432,36 +429,29 @@ function handleErrors(res, error, context) {
     });
   }
 
-  // Erro do Prisma - Registro não encontrado
   if (error.code === 'P2025') {
-    return res.status(404).json({
-      error: 'Registro não encontrado'
-    });
+    return res.status(404).json({ error: 'Registro não encontrado no banco de dados' });
   }
 
-  // Erro do Prisma - Violação de chave estrangeira
   if (error.code === 'P2003') {
     return res.status(400).json({
       error: 'Violação de chave estrangeira',
-      message: 'O capítulo informado não existe'
+      message: 'O id do capítulo ou id do item informado não existe no sistema.'
     });
   }
 
-  // Erro do Prisma - Dado muito longo
   if (error.code === 'P2000') {
     return res.status(400).json({
       error: 'Dado muito longo',
-      message: 'Um dos campos excede o tamanho máximo permitido'
+      message: 'Um dos campos excede o tamanho máximo configurado no banco MySQL.'
     });
   }
 
-  // Log do erro no console
   console.error(`❌ Erro no Inventário (${context}):`, error);
   
-  // Resposta genérica para outros erros
   return res.status(500).json({
     error: 'Erro interno no servidor',
-    message: process.env.NODE_ENV === 'development' ? error.message : 'Ocorreu um erro inesperado'
+    message: process.env.NODE_ENV === 'development' ? error.message : 'Ocorreu um erro inesperado no inventário'
   });
 }
 
