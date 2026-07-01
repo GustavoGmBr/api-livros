@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const bestiarioSchema = z.object({
   nome: z.string().min(1, { message: "O nome da criatura é obrigatório." }).max(255),
-  tipo: z.string().min(1, { message: "O tipo (ex: criatura, besta, monstro) é obrigatório." }).max(100), // 🐲 Novo campo validado
+  tipo: z.string().min(1, { message: "O tipo (ex: criatura, besta, monstro) é obrigatório." }).max(100), 
   descricao: z.string().nullable().optional().transform(val => val === '' ? null : val),
   mundo: z.string().nullable().optional().transform(val => val === '' ? null : val),
   ranque: z.string().nullable().optional().transform(val => val === '' ? null : val),
