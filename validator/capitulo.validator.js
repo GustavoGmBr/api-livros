@@ -7,11 +7,12 @@ export const capituloSchema = z.object({
   numero: z.coerce.number({ required_error: "O número do capítulo é obrigatório" }),
   titulo: z.string({ required_error: "O título é obrigatório" }).min(1),
   
-  // 🌟 CORREÇÃO: Mapeando os arrays participantes na raiz para o Zod não os deletar!
+  // Arrays participantes na raiz
   personagens_participantes: z.array(z.coerce.number()).nullable().optional(),
   formas_participantes: z.array(z.coerce.number()).nullable().optional(),
   itens_participantes: z.array(z.coerce.number()).nullable().optional(),
   locais_participantes: z.array(z.coerce.number()).nullable().optional(),
+  criaturas_participantes: z.array(z.coerce.number()).nullable().optional(), // <-- NOVO CAMPO
 
   conteudo_json: z.array(
     z.object({
@@ -21,6 +22,7 @@ export const capituloSchema = z.object({
       sexo: z.string().trim().nullable().optional(),
       personagens_participantes: z.array(z.coerce.number().int()).nullable().optional(),
       formas_participantes: z.array(z.coerce.number().int()).nullable().optional(),
+      criaturas_participantes: z.array(z.coerce.number().int()).nullable().optional(), // <-- NOVO CAMPO nos blocos
       conteudo: z.object({
         texto: z.string().optional().nullable(),
         fala: z.string().optional().nullable(),
@@ -32,7 +34,7 @@ export const capituloSchema = z.object({
         forma_id: z.coerce.number().nullable().optional()
       }).catchall(z.any())
     }).catchall(z.any())
-  ).nullable().optional(), // Permitido ser nulo ou vazio inicialmente
+  ).nullable().optional(),
   
   resumo: z.any().optional(),
   notas: z.any().optional()

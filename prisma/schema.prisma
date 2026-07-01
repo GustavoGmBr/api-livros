@@ -41,12 +41,13 @@ model capitulos {
   formas_participantes       Json?
   itens_participantes        Json?
   locais_participantes       Json?
+  criaturas_participantes    Json?                  // <-- NOVO CAMPO
   conteudo_json              Json?
   livros                     livros                 @relation(fields: [livro_id], references: [id], onDelete: Cascade)
   parent                     capitulos?             @relation("SubCapitulos", fields: [parent_id], references: [id], onDelete: Cascade)
   children                   capitulos[]            @relation("SubCapitulos")
   personagemHistoricos       personagem_historico[]
-  inventarios                inventarios[]          // <-- Nova relação reversa adicionada aqui
+  inventarios                inventarios[]
 
   @@index([livro_id], map: "livro_id")
   @@index([parent_id], map: "parent_id")

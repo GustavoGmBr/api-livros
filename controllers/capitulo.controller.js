@@ -10,7 +10,6 @@ const toJSON = (data) =>
 const handleError = (res, error) => {
   console.error("💥 ERRO DETECTADO NO CONTROLLER:", error);
   
-  // Se for erro do Zod, devolve os campos exatos que falharam para o Front-end
   if (error instanceof ZodError) {
     return res.status(400).json({ error: "Erro de validação nos dados enviados", detalhes: error.errors });
   }
@@ -79,19 +78,47 @@ const capituloController = {
       const fIds = parseIds(capitulo.formas_participantes); 
       const lIds = parseIds(capitulo.locais_participantes);
       const iIds = parseIds(capitulo.itens_participantes);
+      const cIds = parseIds(capitulo.criaturas_participantes); // <-- NOVO: IDs das criaturas
 
-      const [personagens, formas, locais, itens] = await Promise.all([
+      const [personagens, formas, locais, itens, criaturas] = await Promise.all([
         pIds.length > 0
-          ? prisma.personagens.findMany({ where: { id: { in: pIds } }, select: { id: true, nome: true, imagemRosto: true } })
+          ? prisma.personagens.findMany({ 
+              where: { id: { in: pIds } }, 
+              select: { id: true, nome: true, imagemRosto: true } 
+            })
           : [],
         fIds.length > 0
-          ? prisma.personagem_forma.findMany({ where: { id: { in: fIds } }, select: { id: true, nome: true, personagem_id: true } })
+          ? prisma.personagem_forma.findMany({ 
+              where: { id: { in: fIds } }, 
+              select: { id: true, nome: true, personagem_id: true } 
+            })
           : [],
         lIds.length > 0
-          ? prisma.locais.findMany({ where: { id: { in: lIds } }, select: { id: true, nome: true } })
+          ? prisma.locais.findMany({ 
+              where: { id: { in: lIds } }, 
+              select: { id: true, nome: true } 
+            })
           : [],
         iIds.length > 0
-          ? prisma.itens.findMany({ where: { id_item: { in: iIds } }, select: { id_item: true, nome: true } })
+          ? prisma.itens.findMany({ 
+              where: { id_item: { in: iIds } }, 
+              select: { id_item: true, nome: true } 
+            })
+          : [],
+        cIds.length > 0 // <-- NOVO: Busca das criaturas
+          ? prisma.bestiario.findMany({ 
+              where: { id: { in: cIds } }, 
+              select: { 
+                id: true, 
+                nome: true, 
+                tipo: true,
+                ranque: true,
+                subnivel: true,
+                imagemBestiario: true,
+                classificacao: true,
+                nivelMedio: true
+              } 
+            })
           : []
       ]);
 
@@ -100,7 +127,8 @@ const capituloController = {
         personagens_detalhes: personagens,
         formas_detalhes: formas, 
         locais_detalhes: locais,
-        itens_detalhes: itens
+        itens_detalhes: itens,
+        criaturas_detalhes: criaturas // <-- NOVO: Detalhes das criaturas
       }));
 
     } catch (error) {
@@ -123,6 +151,7 @@ const capituloController = {
           formas_participantes: validatedData.formas_participantes || null,
           itens_participantes: validatedData.itens_participantes || null,
           locais_participantes: validatedData.locais_participantes || null,
+          criaturas_participantes: validatedData.criaturas_participantes || null, // <-- NOVO
           conteudo_json: validatedData.conteudo_json || null
         }
       });
@@ -150,6 +179,7 @@ const capituloController = {
           formas_participantes: validatedData.formas_participantes || null,
           itens_participantes: validatedData.itens_participantes || null,
           locais_participantes: validatedData.locais_participantes || null,
+          criaturas_participantes: validatedData.criaturas_participantes || null, // <-- NOVO
           conteudo_json: validatedData.conteudo_json || null
         }
       });
@@ -204,7 +234,6 @@ const capituloController = {
         data: { conteudo_json: dadosTratados }
       });
 
-      // 🌟 CORREÇÃO: Alterado de 'updated' para 'atualizado' para evitar quebra de referência
       return res.json(toJSON({
         message: "Grimório preservado com sucesso!",
         data: atualizado
@@ -265,7 +294,8 @@ const capituloController = {
           personagens_participantes: null,
           formas_participantes: null,
           itens_participantes: null,
-          locais_participantes: null
+          locais_participantes: null,
+          criaturas_participantes: null // <-- NOVO: Limpar também as criaturas
         }
       });
 
