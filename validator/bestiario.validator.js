@@ -1,3 +1,5 @@
+// validator/bestiario.validator.js
+
 import { z } from 'zod';
 
 export const bestiarioSchema = z.object({
@@ -6,12 +8,13 @@ export const bestiarioSchema = z.object({
   descricao: z.string().nullable().optional().transform(val => val === '' ? null : val),
   mundo: z.string().nullable().optional().transform(val => val === '' ? null : val),
   ranque: z.string().nullable().optional().transform(val => val === '' ? null : val),
-  subnivel: z.number().int().default(1),
-  classificacao: z.string().nullable().optional().transform(val => val === '' ? null : val),
-  nivelMedio: z.number().int().default(1),
-  ponto_combate: z.number().int().default(0),
-  ponto_combateAetheris: z.number().int().default(0),
+  subnivel: z.number().int().min(1).max(5).default(1), // 🔥 Adicionado validação de min/max
+  classificacao: z.string().nullable().optional().transform(val => val === '' ? null : val), // 🔥 Agora aceita qualquer string
+  nivelMedio: z.number().int().min(1).default(1), // 🔥 Adicionado validação de min
+  ponto_combate: z.number().int().min(0).default(0), // 🔥 Adicionado validação de min
+  ponto_combateAetheris: z.number().int().min(0).default(0), // 🔥 Adicionado validação de min
   imagemBestiario: z.string().nullable().optional().transform(val => val === '' ? null : val),
+  sistema_id: z.number().int().nullable().optional().transform(val => val === '' ? null : val), // 🔥 Adicionado campo sistema_id
 });
 
 export default bestiarioSchema;
