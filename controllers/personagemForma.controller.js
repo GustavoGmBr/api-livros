@@ -37,29 +37,37 @@ const personagemFormaController = {
         queryWhere.personagem_id = Number(personagem_id);
       }
 
-      // Otimizamos o include trazendo estritamente apenas o ID e Nome,
-      // evitando que o Prisma tente buscar relações quebradas com 'livros' nas tabelas pai.
+      // Busca apenas as formas, sem relações (pois o schema não tem sistema_id)
       const formas = await prisma.personagem_forma.findMany({
         where: queryWhere,
         include: {
-          sistema: { select: { id: true, nome: true } },
-          personagem: { select: { id: true, nome: true } }
+          personagem: { 
+            select: { 
+              id: true, 
+              nome: true 
+            } 
+          }
+        },
+        orderBy: {
+          nome: 'asc'
         }
       });
 
       const formasFormatadas = formas.map(forma => ({
         ...forma,
-        personagem_nome: forma.personagem?.nome || 'Não Vinculado',
-        sistema_nome: forma.sistema?.nome || 'Nenhum'
+        personagem_nome: forma.personagem?.nome || 'Não Vinculado'
       }));
 
       res.json(toJSON(formasFormatadas));
     } catch (error) {
-      console.warn('⚠️ Falha no include automático. Tentando fallback seguro sem relações:', error.message);
+      console.warn('⚠️ Falha na busca. Tentando fallback seguro:', error.message);
       try {
-        // Fallback limpo de qualquer relação para não travar a listagem na tela do admin
+        // Fallback limpo sem relações
         const formasFallback = await prisma.personagem_forma.findMany({
-          where: req.query.personagem_id ? { personagem_id: Number(req.query.personagem_id) } : {}
+          where: req.query.personagem_id ? { personagem_id: Number(req.query.personagem_id) } : {},
+          orderBy: {
+            nome: 'asc'
+          }
         });
         return res.json(toJSON(formasFallback));
       } catch (fallbackError) {
@@ -89,6 +97,7 @@ const personagemFormaController = {
         }
       }
 
+      // Remove campos que não existem no schema
       const { imagemCorpo, imagemRosto, ...payloadDados } = data;
 
       const novaForma = await prisma.personagem_forma.create({
@@ -114,13 +123,23 @@ const personagemFormaController = {
       const forma = await prisma.personagem_forma.findUnique({
         where: { id },
         include: {
-          sistema: { select: { id: true, nome: true } },
-          personagem: { select: { id: true, nome: true } }
+          personagem: { 
+            select: { 
+              id: true, 
+              nome: true 
+            } 
+          }
         }
       });
 
       if (!forma) return res.status(404).json({ error: 'Forma não encontrada' });
-      res.json(toJSON(forma));
+      
+      const formaFormatada = {
+        ...forma,
+        personagem_nome: forma.personagem?.nome || 'Não Vinculado'
+      };
+      
+      res.json(toJSON(formaFormatada));
     } catch (error) {
       handleError(error, res, req);
     }

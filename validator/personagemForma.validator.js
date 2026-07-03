@@ -5,10 +5,6 @@ export const personagemFormaSchema = z.object({
     .number({ required_error: "ID do personagem é obrigatório" })
     .int("ID do personagem precisa ser um número inteiro"),
     
-  sistema_id: z.coerce
-    .number({ required_error: "ID do sistema é obrigatório" })
-    .int("ID do sistema precisa ser um número inteiro"),
-    
   nome: z.string({ required_error: "O nome é obrigatório" })
     .trim()
     .min(1, "O nome não pode estar vazio")
@@ -20,33 +16,6 @@ export const personagemFormaSchema = z.object({
     .nullable()
     .transform((val) => (val === '' ? null : val)),
     
-  ranque: z.string()
-    .trim()
-    .optional()
-    .nullable()
-    .transform((val) => (val === '' ? null : val)),
-    
-  subnivel: z.coerce
-    .number()
-    .int("O subnível precisa ser um número inteiro")
-    .default(1),
-    
-  bonusPC: z.coerce
-    .number()
-    .default(0),
-    
-  pcForma: z.coerce
-    .number()
-    .int("O PC da forma precisa ser um número inteiro")
-    .optional()
-    .nullable()
-    .transform((val) => (val === '' || isNaN(val) ? null : val)),
-
-  // 🔮 NOVO CAMPO NO VALIDADOR: Aceita números com ponto flutuante
-  bonusAetheris: z.coerce
-    .number()
-    .default(0),
-  
   imagemRosto: z.string()
     .trim()
     .optional()
@@ -59,5 +28,13 @@ export const personagemFormaSchema = z.object({
     .nullable()
     .transform((val) => (val === '' ? null : val)),
 });
+
+// Schema para criação (sem campos gerados automaticamente)
+export const personagemFormaCreateSchema = personagemFormaSchema.omit({
+  // Se houver campos que são gerados automaticamente, adicione aqui
+});
+
+// Schema para atualização (todos os campos opcionais)
+export const personagemFormaUpdateSchema = personagemFormaSchema.partial();
 
 export default personagemFormaSchema;
