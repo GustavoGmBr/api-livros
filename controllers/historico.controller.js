@@ -8,26 +8,43 @@ const sanitizeHistoricoData = (data) => {
   
   // Sanitiza formas_desbloqueadas
   if (rest.formas_desbloqueadas && Array.isArray(rest.formas_desbloqueadas)) {
-    rest.formas_desbloqueadas = rest.formas_desbloqueadas.map((forma) => ({
-      forma_id: Number(forma.forma_id),
-      subnivel: Math.min(Math.max(Number(forma.subnivel) || 1, 1), 5), // Garante entre 1-5
-      pcForma: Number(forma.pcForma) || 0,
-      bonusPC: Number(forma.bonusPC) || 0,
-      bonusAetheris: Number(forma.bonusAetheris) || 0
-    }));
+    rest.formas_desbloqueadas = rest.formas_desbloqueadas
+      .filter(forma => forma.forma_id) // Remove entradas inválidas
+      .map((forma) => ({
+        forma_id: Number(forma.forma_id),
+        subnivel: Math.min(Math.max(Number(forma.subnivel) || 1, 1), 5), // Garante entre 1-5
+        pcForma: Number(forma.pcForma) || 0,
+        bonusPC: Number(forma.bonusPC) || 0,
+        bonusAetheris: Number(forma.bonusAetheris) || 0
+      }));
   } else {
     rest.formas_desbloqueadas = null;
   }
 
   // Garante que campos numéricos sejam números
-  rest.subnivel = Number(rest.subnivel) || 1;
-  rest.nivel = Number(rest.nivel) || 1;
-  rest.xpAtual = Number(rest.xpAtual) || 0;
-  rest.xpProximo = Number(rest.xpProximo) || 100;
-  rest.qtd_treino = Number(rest.qtd_treino) || 0;
-  rest.ponto_combate = Number(rest.ponto_combate) || 0;
-  rest.ponto_combateAetheris = Number(rest.ponto_combateAetheris) || 0;
-  rest.bonusPCErion = Number(rest.bonusPCErion) || 0;
+  const numericFields = ['subnivel', 'nivel', 'xpAtual', 'xpProximo', 
+                         'qtd_treino', 'ponto_combate', 'ponto_combateAetheris', 
+                         'bonusPCErion'];
+  
+  numericFields.forEach(field => {
+    if (rest[field] !== undefined && rest[field] !== null) {
+      rest[field] = Number(rest[field]) || 0;
+    }
+  });
+
+  // Trata campos JSON
+  const jsonFields = ['elementos', 'equipamento', 'habilidades'];
+  jsonFields.forEach(field => {
+    if (rest[field] === undefined) {
+      delete rest[field];
+    } else if (typeof rest[field] === 'string') {
+      try {
+        rest[field] = JSON.parse(rest[field]);
+      } catch {
+        rest[field] = null;
+      }
+    }
+  });
 
   // Remove undefined values
   Object.keys(rest).forEach(key => {
@@ -54,15 +71,42 @@ const prepareHistoricoResponse = (historico) => {
   };
 };
 
+// 🔥 Função para extrair dados válidos do body
+const extractValidData = (body) => {
+  // Garante que campos de select HTML sejam tratados corretamente
+  const processedData = { ...body };
+  
+  // Campos que podem vir como string vazia e devem ser null
+  const nullableFields = ['livro_id', 'capitulo_id', 'idade', 'titulo', 
+                         'ranque', 'classificacao', 'classes', 'estilo_luta', 
+                         'maestria'];
+  
+  nullableFields.forEach(field => {
+    if (processedData[field] === '') {
+      processedData[field] = null;
+    }
+  });
+
+  // Garante que arrays sejam tratados corretamente
+  if (processedData.formas_desbloqueadas === '') {
+    processedData.formas_desbloqueadas = null;
+  }
+
+  return processedData;
+};
+
 const store = async (req, res) => {
   try {
-    // 1. Validação dos dados com Zod
-    const validatedData = historicoSchema.parse(req.body);
+    // 1. Extrai e processa dados do body
+    const processedData = extractValidData(req.body);
 
-    // 2. Sanitização dos dados
+    // 2. Validação dos dados com Zod
+    const validatedData = historicoSchema.parse(processedData);
+
+    // 3. Sanitização dos dados
     const dataToSave = sanitizeHistoricoData(validatedData);
 
-    // 3. Log para debug (apenas em desenvolvimento)
+    // 4. Log para debug (apenas em desenvolvimento)
     if (process.env.NODE_ENV === 'development') {
       console.log('📦 Dados a serem salvos (store):', JSON.stringify({
         ...dataToSave,
@@ -70,7 +114,7 @@ const store = async (req, res) => {
       }, null, 2));
     }
 
-    // 4. Criação no banco
+    // 5. Criação no banco
     const historico = await prisma.personagem_historico.create({
       data: dataToSave,
       include: {
@@ -88,7 +132,7 @@ const store = async (req, res) => {
       }
     });
 
-    // 5. Formata resposta
+    // 6. Formata resposta
     const response = prepareHistoricoResponse(historico);
 
     return res.status(201).json({
@@ -129,13 +173,16 @@ const update = async (req, res) => {
       });
     }
 
-    // 2. Validação dos dados com Zod
-    const validatedData = historicoSchema.parse(req.body);
+    // 2. Extrai e processa dados do body
+    const processedData = extractValidData(req.body);
 
-    // 3. Sanitização dos dados
+    // 3. Validação dos dados com Zod
+    const validatedData = historicoSchema.parse(processedData);
+
+    // 4. Sanitização dos dados
     const dataToSave = sanitizeHistoricoData(validatedData);
 
-    // 4. Log para debug (apenas em desenvolvimento)
+    // 5. Log para debug (apenas em desenvolvimento)
     if (process.env.NODE_ENV === 'development') {
       console.log('📦 Dados a serem salvos (update):', JSON.stringify({
         ...dataToSave,
@@ -143,7 +190,7 @@ const update = async (req, res) => {
       }, null, 2));
     }
 
-    // 5. Atualização no banco
+    // 6. Atualização no banco
     const historico = await prisma.personagem_historico.update({
       where: { id: historicoId },
       data: dataToSave,
@@ -162,7 +209,7 @@ const update = async (req, res) => {
       }
     });
 
-    // 6. Formata resposta
+    // 7. Formata resposta
     const response = prepareHistoricoResponse(historico);
 
     return res.json({
@@ -351,8 +398,8 @@ const destroy = async (req, res) => {
 // 🔥 FUNÇÃO handleErrors MELHORADA
 function handleErrors(res, error, context) {
   // 1. Verifica se é erro do Zod
-  if (error instanceof ZodError || (error && error.name === 'ZodError')) {
-    const errors = error.errors || error.issues || [];
+  if (error instanceof ZodError) {
+    const errors = error.issues || error.errors || [];
 
     console.error('❌ Erro de validação Zod:', JSON.stringify(errors, null, 2));
 
@@ -445,5 +492,6 @@ export default {
   timeline,
   sanitizeHistoricoData,
   prepareHistoricoResponse,
-  handleErrors 
+  handleErrors,
+  extractValidData
 };
