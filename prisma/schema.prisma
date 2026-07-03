@@ -168,13 +168,13 @@ model inventarios {
 }
 
 model sistemas {
-  id               Int                @id @default(autoincrement())
-  nome             String             @unique
-  progressao       Json
-  limite_bonus     Json
-  criado_em        DateTime           @default(now())
-  atualizado_em    DateTime           @updatedAt
-  racas            racas[]
+  id            Int      @id @default(autoincrement())
+  nome          String   @unique
+  progressao    Json
+  limite_bonus  Json
+  criado_em     DateTime @default(now())
+  atualizado_em DateTime @updatedAt
+  racas         racas[]
 
   @@map("sistemas")
 }
