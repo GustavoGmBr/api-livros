@@ -41,7 +41,7 @@ model capitulos {
   formas_participantes      Json?
   itens_participantes       Json?
   locais_participantes      Json?
-  criaturas_participantes   Json? // <-- NOVO CAMPO
+  criaturas_participantes   Json?
   conteudo_json             Json?
   livros                    livros                 @relation(fields: [livro_id], references: [id], onDelete: Cascade)
   parent                    capitulos?             @relation("SubCapitulos", fields: [parent_id], references: [id], onDelete: Cascade)
@@ -120,9 +120,8 @@ model personagem_historico {
   elementos             Json?
   equipamento           Json?
   habilidades           Json?
-  formas_desbloqueadas  Json? //{ "forma_id": 1, "pcForma": 10000, "ranque": "Divino", "bonusAetheris": 150  },
+  formas_desbloqueadas  Json?
   criado_em             DateTime    @default(now())
-  // inventario removido daqui
   capitulo              capitulos?  @relation(fields: [capitulo_id], references: [id])
   livro                 livros?     @relation(fields: [livro_id], references: [id])
   personagem            personagens @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
@@ -145,8 +144,6 @@ model personagem_forma {
   criado_em     DateTime    @default(now())
   atualizado_em DateTime    @updatedAt
   personagem    personagens @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
-  sistemas      sistemas?   @relation(fields: [sistemasId], references: [id])
-  sistemasId    Int?
 
   @@index([personagem_id])
   @@map("personagem_formas")
@@ -154,7 +151,7 @@ model personagem_forma {
 
 model inventarios {
   id           Int       @id @default(autoincrement())
-  capitulo_id  Int // <-- Modificado de historico_id para capitulo_id
+  capitulo_id  Int
   nome         String    @db.VarChar(255)
   descricao    String?   @db.Text
   tipo         String?   @db.VarChar(100)
@@ -162,7 +159,7 @@ model inventarios {
   grau         String?   @db.VarChar(100)
   quantidade   Decimal   @default(0.00) @db.Decimal(18, 2)
   itensId_item Int?
-  capitulo     capitulos @relation(fields: [capitulo_id], references: [id], onDelete: Cascade) // <-- Nova relação criada
+  capitulo     capitulos @relation(fields: [capitulo_id], references: [id], onDelete: Cascade)
   itens        itens?    @relation(fields: [itensId_item], references: [id_item])
 
   @@index([capitulo_id], map: "inventarios_capitulo_id_fkey")
@@ -177,7 +174,6 @@ model sistemas {
   limite_bonus     Json
   criado_em        DateTime           @default(now())
   atualizado_em    DateTime           @updatedAt
-  personagemFormas personagem_forma[]
   racas            racas[]
 
   @@map("sistemas")
@@ -226,7 +222,7 @@ model itens {
 model bestiario {
   id                    Int      @id @default(autoincrement())
   nome                  String   @db.VarChar(255)
-  tipo                  String   @db.VarChar(100) // 🐲 Novo campo adicionado aqui
+  tipo                  String   @db.VarChar(100)
   descricao             String?  @db.Text
   mundo                 String?  @db.VarChar(255)
   ranque                String?
