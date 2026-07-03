@@ -4,13 +4,26 @@ import { ZodError } from 'zod';
 
 const store = async (req, res) => {
   try {
-    // Como o inventário agora pertence ao capítulo, removemos a inserção cascata aqui
-    const { inventario, ...rest } = historicoSchema.parse(req.body);
+    // Parse e validação dos dados
+    const validatedData = historicoSchema.parse(req.body);
+    
+    // 🔥 EXTRAIR formas_desbloqueadas para tratamento especial
+    const { inventario, formas_desbloqueadas, ...rest } = validatedData;
+
+    // 🔥 PREPARAR dados para o Prisma
+    const dataToSave = {
+      ...rest,
+      // 🔥 Garantir que formas_desbloqueadas seja um array válido ou null
+      formas_desbloqueadas: formas_desbloqueadas && formas_desbloqueadas.length > 0 
+        ? formas_desbloqueadas 
+        : null
+    };
+
+    // 🔥 LOG para debug
+    console.log('📦 Dados a serem salvos:', JSON.stringify(dataToSave, null, 2));
 
     const historico = await prisma.personagem_historico.create({
-      data: {
-        ...rest
-      },
+      data: dataToSave,
       include: { 
         raca: true,
         livro: true,
@@ -26,6 +39,7 @@ const store = async (req, res) => {
 
     return res.status(201).json(historico);
   } catch (error) {
+    console.error('❌ Erro no store:', error);
     handleErrors(res, error, "store");
   }
 };
@@ -35,15 +49,22 @@ const update = async (req, res) => {
   const historicoId = Number(id);
 
   try {
-    const { inventario, ...rest } = historicoSchema.parse(req.body);
+    const validatedData = historicoSchema.parse(req.body);
+    
+    // 🔥 EXTRAIR formas_desbloqueadas para tratamento especial
+    const { inventario, formas_desbloqueadas, ...rest } = validatedData;
 
-    // Não precisamos mais de transação para apagar/recriar inventário aqui,
-    // pois o inventário agora é gerenciado pelo controller de inventários/capítulos.
+    // 🔥 PREPARAR dados para o Prisma
+    const dataToSave = {
+      ...rest,
+      formas_desbloqueadas: formas_desbloqueadas && formas_desbloqueadas.length > 0 
+        ? formas_desbloqueadas 
+        : null
+    };
+
     const historico = await prisma.personagem_historico.update({
       where: { id: historicoId },
-      data: {
-        ...rest
-      },
+      data: dataToSave,
       include: { 
         raca: true,
         livro: true,
@@ -59,6 +80,7 @@ const update = async (req, res) => {
 
     return res.json(historico);
   } catch (error) {
+    console.error('❌ Erro no update:', error);
     handleErrors(res, error, "update");
   }
 };
@@ -71,7 +93,6 @@ const show = async (req, res) => {
       include: {
         raca: true,
         livro: true,
-        // ✅ CORREÇÃO: O inventário agora é puxado de dentro de capitulo usando o plural correto (inventarios)
         capitulo: {
           include: {
             inventarios: {
@@ -93,11 +114,10 @@ const timeline = async (req, res) => {
   const { personajeId } = req.params;
   try {
     const historicos = await prisma.personagem_historico.findMany({
-      where: { personaje_id: Number(personagemId) },
+      where: { personagem_id: Number(personajeId) },
       include: {
         raca: true,
         livro: { select: { titulo: true } },
-        // ✅ CORREÇÃO: Buscando os itens do inventário vinculados ao capítulo atual do histórico
         capitulo: {
           select: { 
             numero: true, 
@@ -132,13 +152,26 @@ const destroy = async (req, res) => {
 
 function handleErrors(res, error, context) {
   if (error instanceof ZodError) {
-    return res.status(400).json({ error: "Erro de validação", detalhes: error.errors });
+    console.error('❌ Erro de validação Zod:', JSON.stringify(error.errors, null, 2));
+    return res.status(400).json({ 
+      error: "Erro de validação", 
+      detalhes: error.errors 
+    });
   }
+  
   if (error.code === 'P2025') {
     return res.status(404).json({ error: 'Registro não encontrado' });
   }
+  
+  if (error.code === 'P2002') {
+    return res.status(409).json({ error: 'Conflito: Registro duplicado' });
+  }
+  
   console.error(`❌ Erro Prisma (${context}):`, error);
-  return res.status(500).json({ error: `Erro interno no servidor (${context})` });
+  return res.status(500).json({ 
+    error: `Erro interno no servidor (${context})`,
+    message: error.message || 'Erro desconhecido'
+  });
 }
 
 export default { store, update, show, destroy, timeline };

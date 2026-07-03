@@ -120,7 +120,7 @@ model personagem_historico {
   elementos             Json?
   equipamento           Json?
   habilidades           Json?
-  formas_desbloqueadas  Json?
+  formas_desbloqueadas  Json? //{ "forma_id": 1, "pcForma": 10000, "ranque": "Divino", "bonusAetheris": 150  },
   criado_em             DateTime     @default(now())
   // inventario removido daqui
   capitulo              capitulos?   @relation(fields: [capitulo_id], references: [id])

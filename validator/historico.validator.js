@@ -17,8 +17,8 @@ export const historicoSchema = z.object({
   maestria: z.string().nullable().optional(),
 
   // Força a conversão para número e aceita o padrão vindo do seu formulário
-  subnivel: z.coerce.number().int().default(1), // No Prisma o padrão é 1
-  nivel: z.coerce.number().int().default(1),    // No Prisma o padrão é 1
+  subnivel: z.coerce.number().int().default(1),
+  nivel: z.coerce.number().int().default(1),
   xpAtual: z.coerce.number().int().default(0),
   xpProximo: z.coerce.number().int().default(100),
   qtd_treino: z.coerce.number().int().default(0),
@@ -26,12 +26,44 @@ export const historicoSchema = z.object({
   ponto_combateAetheris: z.coerce.number().int().default(0),
   bonusPCErion: z.coerce.number().int().default(0),
 
-  // Campos definidos como Json? no seu schema do banco
+  // 🔥 CORREÇÃO: Campos Json com validação específica para o formato correto
   elementos: z.any().optional().nullable(),
   equipamento: z.any().optional().nullable(),
   habilidades: z.any().optional().nullable(),
-  formas_desbloqueadas: z.any().optional().nullable(), // Adicionado para bater com o Prisma
+  
+  // 🔥 CORREÇÃO: Validação específica para formas_desbloqueadas
+  formas_desbloqueadas: z.preprocess(
+    (val) => {
+      // Se for string vazia, retorna null
+      if (val === "" || val === null || val === undefined) return null;
+      
+      // Se já for um array/objeto, retorna como está
+      if (typeof val === 'object') return val;
+      
+      // Se for string JSON, tenta fazer parse
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return null;
+        }
+      }
+      
+      return null;
+    },
+    z.array(
+      z.object({
+        forma_id: z.number().or(z.coerce.number()),
+        pcForma: z.number().or(z.coerce.number()).optional().default(0),
+        ranque: z.string().optional().nullable(),
+        bonusAetheris: z.number().or(z.coerce.number()).optional().default(0)
+      })
+    ).nullable().optional()
+  ),
 
   // Como no banco é uma tabela relacionada (inventarios[]), deixamos opcional para o validador principal
   inventario: z.array(z.any()).optional().default([])
 });
+
+// 🔥 Schema para validação parcial (update)
+export const historicoUpdateSchema = historicoSchema.partial();
