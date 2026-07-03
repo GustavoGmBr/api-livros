@@ -161,14 +161,18 @@ const destroy = async (req, res) => {
   }
 };
 
-// 🔥 FUNÇÃO handleErrors
+// 🔥 FUNÇÃO handleErrors CORRIGIDA E SEGURA
 function handleErrors(res, error, context) {
-  if (error instanceof ZodError) {
-    console.error('❌ Erro de validação Zod:', JSON.stringify(error.errors, null, 2));
+  // 1. Verifica se é erro do Zod (com fallbacks de segurança para evitar o erro de .map)
+  if (error instanceof ZodError || (error && error.name === 'ZodError')) {
+    const listadeErros = error.errors || error.issues || [];
+    
+    console.error('❌ Erro de validação Zod:', JSON.stringify(listadeErros, null, 2));
+    
     return res.status(400).json({ 
       error: "Erro de validação", 
-      detalhes: error.errors.map(e => ({
-        campo: e.path.join('.'),
+      detalhes: listadeErros.map(e => ({
+        campo: e.path?.join('.') || 'campo desconhecido',
         mensagem: e.message,
         codigo: e.code,
         recebido: e.received
@@ -176,6 +180,7 @@ function handleErrors(res, error, context) {
     });
   }
   
+  // 2. Verifica se é erro do Prisma
   if (error && typeof error === 'object' && 'code' in error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ 
@@ -208,6 +213,7 @@ function handleErrors(res, error, context) {
     }
   }
   
+  // 3. Erros genéricos ou falhas inesperadas
   console.error(`❌ Erro interno (${context}):`, error);
   
   const mensagem = error?.message || 'Erro interno do servidor';
