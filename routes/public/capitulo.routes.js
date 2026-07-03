@@ -6,6 +6,9 @@ const router = Router();
 // Lista os capítulos mais recentes para o feed/dashboard
 router.get('/recentes', capituloController.listarRecentes);
 
+// Lista os capítulos mais recentes para o feed/dashboard
+router.get('/', capituloController.listarTodos);
+
 // Busca por ID ou Título (Slug) - inclui detalhes dos participantes
 router.get('/:id', capituloController.show);
 

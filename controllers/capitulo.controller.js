@@ -9,11 +9,11 @@ const toJSON = (data) =>
 // Centralização de erros inteligente
 const handleError = (res, error) => {
   console.error("💥 ERRO DETECTADO NO CONTROLLER:", error);
-  
+
   if (error instanceof ZodError) {
     return res.status(400).json({ error: "Erro de validação nos dados enviados", detalhes: error.errors });
   }
-  
+
   return res.status(500).json({ error: error.message || "Erro interno no servidor" });
 };
 
@@ -49,8 +49,8 @@ const capituloController = {
       const idNumerico = !isNaN(Number(id)) ? Number(id) : null;
 
       const capitulo = await prisma.capitulos.findFirst({
-        where: idNumerico 
-          ? { id: idNumerico } 
+        where: idNumerico
+          ? { id: idNumerico }
           : { titulo: id },
         include: {
           children: {
@@ -75,57 +75,57 @@ const capituloController = {
       };
 
       const pIds = parseIds(capitulo.personagens_participantes);
-      const fIds = parseIds(capitulo.formas_participantes); 
+      const fIds = parseIds(capitulo.formas_participantes);
       const lIds = parseIds(capitulo.locais_participantes);
       const iIds = parseIds(capitulo.itens_participantes);
       const cIds = parseIds(capitulo.criaturas_participantes); // <-- NOVO: IDs das criaturas
 
       const [personagens, formas, locais, itens, criaturas] = await Promise.all([
         pIds.length > 0
-          ? prisma.personagens.findMany({ 
-              where: { id: { in: pIds } }, 
-              select: { id: true, nome: true, imagemRosto: true } 
-            })
+          ? prisma.personagens.findMany({
+            where: { id: { in: pIds } },
+            select: { id: true, nome: true, imagemRosto: true }
+          })
           : [],
         fIds.length > 0
-          ? prisma.personagem_forma.findMany({ 
-              where: { id: { in: fIds } }, 
-              select: { id: true, nome: true, personagem_id: true } 
-            })
+          ? prisma.personagem_forma.findMany({
+            where: { id: { in: fIds } },
+            select: { id: true, nome: true, personagem_id: true }
+          })
           : [],
         lIds.length > 0
-          ? prisma.locais.findMany({ 
-              where: { id: { in: lIds } }, 
-              select: { id: true, nome: true } 
-            })
+          ? prisma.locais.findMany({
+            where: { id: { in: lIds } },
+            select: { id: true, nome: true }
+          })
           : [],
         iIds.length > 0
-          ? prisma.itens.findMany({ 
-              where: { id_item: { in: iIds } }, 
-              select: { id_item: true, nome: true } 
-            })
+          ? prisma.itens.findMany({
+            where: { id_item: { in: iIds } },
+            select: { id_item: true, nome: true }
+          })
           : [],
         cIds.length > 0 // <-- NOVO: Busca das criaturas
-          ? prisma.bestiario.findMany({ 
-              where: { id: { in: cIds } }, 
-              select: { 
-                id: true, 
-                nome: true, 
-                tipo: true,
-                ranque: true,
-                subnivel: true,
-                imagemBestiario: true,
-                classificacao: true,
-                nivelMedio: true
-              } 
-            })
+          ? prisma.bestiario.findMany({
+            where: { id: { in: cIds } },
+            select: {
+              id: true,
+              nome: true,
+              tipo: true,
+              ranque: true,
+              subnivel: true,
+              imagemBestiario: true,
+              classificacao: true,
+              nivelMedio: true
+            }
+          })
           : []
       ]);
 
       return res.json(toJSON({
         ...capitulo,
         personagens_detalhes: personagens,
-        formas_detalhes: formas, 
+        formas_detalhes: formas,
         locais_detalhes: locais,
         itens_detalhes: itens,
         criaturas_detalhes: criaturas // <-- NOVO: Detalhes das criaturas
@@ -270,7 +270,32 @@ const capituloController = {
       return handleError(res, error);
     }
   },
+  async listarTodos(req, res) {
+    try {
+      const capitulos = await prisma.capitulos.findMany({
+        orderBy: [
+          { livro_id: "asc" },
+          { numero: "asc" }
+        ],
+        include: {
+          livro: {
+            select: {
+              id: true,
+              titulo: true,
+              genero: true
+            }
+          },
+          children: {
+            orderBy: { numero: "asc" }
+          }
+        }
+      });
 
+      return res.json(toJSON(capitulos));
+    } catch (error) {
+      return handleError(res, error);
+    }
+  },
   // PATCH /capitulos/:id/limpar-conteudo
   async destroyConteudo(req, res) {
     try {
