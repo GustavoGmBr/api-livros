@@ -7,23 +7,17 @@ const store = async (req, res) => {
     // Parse e validação dos dados
     const validatedData = historicoSchema.parse(req.body);
     
-    // 🔥 EXTRAIR formas_desbloqueadas para tratamento especial
-    const { inventario, formas_desbloqueadas, ...rest } = validatedData;
-
-    // 🔥 PREPARAR dados para o Prisma
-    const dataToSave = {
-      ...rest,
-      // 🔥 Garantir que formas_desbloqueadas seja um array válido ou null
-      formas_desbloqueadas: formas_desbloqueadas && formas_desbloqueadas.length > 0 
-        ? formas_desbloqueadas 
-        : null
-    };
+    // 🔥 EXTRAIR campos que não devem ir para o banco diretamente
+    const { inventario, ...rest } = validatedData;
 
     // 🔥 LOG para debug
-    console.log('📦 Dados a serem salvos:', JSON.stringify(dataToSave, null, 2));
+    console.log('📦 Dados validados:', JSON.stringify({
+      ...rest,
+      formas_desbloqueadas: rest.formas_desbloqueadas?.length || 0
+    }, null, 2));
 
     const historico = await prisma.personagem_historico.create({
-      data: dataToSave,
+      data: rest,
       include: { 
         raca: true,
         livro: true,
@@ -51,20 +45,12 @@ const update = async (req, res) => {
   try {
     const validatedData = historicoSchema.parse(req.body);
     
-    // 🔥 EXTRAIR formas_desbloqueadas para tratamento especial
-    const { inventario, formas_desbloqueadas, ...rest } = validatedData;
-
-    // 🔥 PREPARAR dados para o Prisma
-    const dataToSave = {
-      ...rest,
-      formas_desbloqueadas: formas_desbloqueadas && formas_desbloqueadas.length > 0 
-        ? formas_desbloqueadas 
-        : null
-    };
+    // 🔥 EXTRAIR campos que não devem ir para o banco diretamente
+    const { inventario, ...rest } = validatedData;
 
     const historico = await prisma.personagem_historico.update({
       where: { id: historicoId },
-      data: dataToSave,
+      data: rest,
       include: { 
         raca: true,
         livro: true,
@@ -155,7 +141,11 @@ function handleErrors(res, error, context) {
     console.error('❌ Erro de validação Zod:', JSON.stringify(error.errors, null, 2));
     return res.status(400).json({ 
       error: "Erro de validação", 
-      detalhes: error.errors 
+      detalhes: error.errors.map(e => ({
+        campo: e.path.join('.'),
+        mensagem: e.message,
+        recebido: e.received
+      }))
     });
   }
   
