@@ -1,18 +1,16 @@
-// controllers/historico.controller.js - ATUALIZADO COM MAIS LOGS
+// controllers/historico.controller.js
 import prisma from '../lib/prisma.js';
 import { historicoSchema } from '../validator/historico.validator.js';
 import { ZodError } from 'zod';
 
 // 🔥 Função para sanitizar dados antes de salvar
 const sanitizeHistoricoData = (data) => {
-  console.log('🔧 SANITIZE - Dados recebidos:', JSON.stringify(data, null, 2));
-  
   const { inventario, ...rest } = data;
   
   // Sanitiza formas_desbloqueadas
   if (rest.formas_desbloqueadas && Array.isArray(rest.formas_desbloqueadas)) {
     rest.formas_desbloqueadas = rest.formas_desbloqueadas
-      .filter(forma => forma.forma_id) // Remove entradas inválidas
+      .filter(forma => forma.forma_id)
       .map((forma) => ({
         forma_id: Number(forma.forma_id),
         subnivel: Math.min(Math.max(Number(forma.subnivel) || 1, 1), 5),
@@ -35,7 +33,7 @@ const sanitizeHistoricoData = (data) => {
     }
   });
 
-  // Trata campos JSON - IMPORTANTE: Prisma espera JSON ou null
+  // Trata campos JSON
   const jsonFields = ['elementos', 'equipamento', 'habilidades'];
   jsonFields.forEach(field => {
     if (rest[field] === undefined || rest[field] === null) {
@@ -47,7 +45,6 @@ const sanitizeHistoricoData = (data) => {
         rest[field] = null;
       }
     } else if (Array.isArray(rest[field]) && rest[field].length === 0) {
-      // Arrays vazios podem ser null para evitar erro no Prisma
       rest[field] = null;
     }
   });
@@ -59,8 +56,6 @@ const sanitizeHistoricoData = (data) => {
     }
   });
 
-  console.log('🔧 SANITIZE - Dados após sanitização:', JSON.stringify(rest, null, 2));
-  
   return rest;
 };
 
@@ -78,17 +73,14 @@ const prepareHistoricoResponse = (historico) => {
   };
 };
 
+// 🔥 STORE
 const store = async (req, res) => {
   try {
-    console.log('📥 STORE - Body recebido:', JSON.stringify(req.body, null, 2));
-
     // 1. Validação dos dados com Zod
     const validatedData = historicoSchema.parse(req.body);
-    console.log('✅ STORE - Dados validados:', JSON.stringify(validatedData, null, 2));
 
     // 2. Sanitização dos dados
     const dataToSave = sanitizeHistoricoData(validatedData);
-    console.log('✅ STORE - Dados prontos para salvar:', JSON.stringify(dataToSave, null, 2));
 
     // 3. Criação no banco
     const historico = await prisma.personagem_historico.create({
@@ -117,24 +109,16 @@ const store = async (req, res) => {
       message: 'Histórico criado com sucesso'
     });
   } catch (error) {
-    console.error('❌ STORE - Erro detalhado:', error);
-    console.error('❌ STORE - Stack:', error.stack);
-    
-    // Log específico para erros do Prisma
-    if (error.code) {
-      console.error('❌ STORE - Prisma error code:', error.code);
-      console.error('❌ STORE - Prisma error meta:', error.meta);
-    }
-    
+    console.error('❌ Erro no store:', error);
     return handleErrors(res, error, "store");
   }
 };
 
+// 🔥 UPDATE
 const update = async (req, res) => {
   const { id } = req.params;
   const historicoId = Number(id);
 
-  // Valida ID
   if (isNaN(historicoId)) {
     return res.status(400).json({
       success: false,
@@ -144,9 +128,6 @@ const update = async (req, res) => {
   }
 
   try {
-    console.log(`📥 UPDATE ${historicoId} - Body recebido:`, JSON.stringify(req.body, null, 2));
-
-    // 1. Verifica se o registro existe
     const existingHistorico = await prisma.personagem_historico.findUnique({
       where: { id: historicoId }
     });
@@ -159,15 +140,9 @@ const update = async (req, res) => {
       });
     }
 
-    // 2. Validação dos dados com Zod
     const validatedData = historicoSchema.parse(req.body);
-    console.log(`✅ UPDATE ${historicoId} - Dados validados:`, JSON.stringify(validatedData, null, 2));
-
-    // 3. Sanitização dos dados
     const dataToSave = sanitizeHistoricoData(validatedData);
-    console.log(`✅ UPDATE ${historicoId} - Dados prontos para salvar:`, JSON.stringify(dataToSave, null, 2));
 
-    // 4. Atualização no banco
     const historico = await prisma.personagem_historico.update({
       where: { id: historicoId },
       data: dataToSave,
@@ -186,7 +161,6 @@ const update = async (req, res) => {
       }
     });
 
-    // 5. Formata resposta
     const response = prepareHistoricoResponse(historico);
 
     return res.json({
@@ -195,25 +169,181 @@ const update = async (req, res) => {
       message: 'Histórico atualizado com sucesso'
     });
   } catch (error) {
-    console.error(`❌ UPDATE ${historicoId} - Erro detalhado:`, error);
-    console.error(`❌ UPDATE ${historicoId} - Stack:`, error.stack);
-    
-    if (error.code) {
-      console.error(`❌ UPDATE ${historicoId} - Prisma error code:`, error.code);
-      console.error(`❌ UPDATE ${historicoId} - Prisma error meta:`, error.meta);
-    }
-    
+    console.error('❌ Erro no update:', error);
     return handleErrors(res, error, "update");
   }
 };
 
-// ... (restante do código igual, apenas com mais logs)
+// 🔥 SHOW - CORRIGIDO: função agora está definida corretamente
+const show = async (req, res) => {
+  const { id } = req.params;
+  const historicoId = Number(id);
 
-// 🔥 FUNÇÃO handleErrors MELHORADA
+  if (isNaN(historicoId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'ID inválido',
+      message: 'O ID fornecido não é um número válido'
+    });
+  }
+
+  try {
+    const historico = await prisma.personagem_historico.findUnique({
+      where: { id: historicoId },
+      include: {
+        raca: true,
+        livro: true,
+        capitulo: {
+          include: {
+            inventarios: {
+              include: { 
+                itens: true 
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!historico) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro não encontrado',
+        message: `Histórico com ID ${historicoId} não encontrado`
+      });
+    }
+
+    const response = prepareHistoricoResponse(historico);
+
+    return res.json({
+      success: true,
+      data: response
+    });
+  } catch (error) {
+    console.error('❌ Erro no show:', error);
+    return handleErrors(res, error, "show");
+  }
+};
+
+// 🔥 TIMELINE
+const timeline = async (req, res) => {
+  const { personajeId } = req.params;
+  const personagemId = Number(personajeId);
+
+  if (isNaN(personagemId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'ID inválido',
+      message: 'O ID do personagem fornecido não é um número válido'
+    });
+  }
+
+  try {
+    const personagem = await prisma.personagem.findUnique({
+      where: { id: personagemId },
+      select: { id: true, nome: true }
+    });
+
+    if (!personagem) {
+      return res.status(404).json({
+        success: false,
+        error: 'Personagem não encontrado',
+        message: `Personagem com ID ${personagemId} não encontrado`
+      });
+    }
+
+    const historicos = await prisma.personagem_historico.findMany({
+      where: { personagem_id: personagemId },
+      include: {
+        raca: true,
+        livro: {
+          select: { 
+            id: true,
+            titulo: true 
+          }
+        },
+        capitulo: {
+          select: {
+            id: true,
+            numero: true,
+            titulo: true,
+            inventarios: {
+              include: {
+                itens: { 
+                  select: { 
+                    id: true,
+                    nome: true,
+                    descricao: true,
+                    tipo: true
+                  } 
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { criado_em: 'desc' }
+    });
+
+    const response = historicos.map(historico => ({
+      ...prepareHistoricoResponse(historico),
+      personagem: {
+        id: personagem.id,
+        nome: personagem.nome
+      }
+    }));
+
+    return res.json({
+      success: true,
+      data: response,
+      count: response.length,
+      message: response.length > 0 ? 'Históricos encontrados' : 'Nenhum histórico encontrado para este personagem'
+    });
+  } catch (error) {
+    console.error('❌ Erro no timeline:', error);
+    return handleErrors(res, error, "timeline");
+  }
+};
+
+// 🔥 DESTROY
+const destroy = async (req, res) => {
+  const { id } = req.params;
+  const historicoId = Number(id);
+
+  if (isNaN(historicoId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'ID inválido',
+      message: 'O ID fornecido não é um número válido'
+    });
+  }
+
+  try {
+    const existingHistorico = await prisma.personagem_historico.findUnique({
+      where: { id: historicoId }
+    });
+
+    if (!existingHistorico) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro não encontrado',
+        message: `Histórico com ID ${historicoId} não encontrado`
+      });
+    }
+
+    await prisma.personagem_historico.delete({
+      where: { id: historicoId }
+    });
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error('❌ Erro no destroy:', error);
+    return handleErrors(res, error, "destroy");
+  }
+};
+
+// 🔥 FUNÇÃO handleErrors
 function handleErrors(res, error, context) {
-  // Log completo do erro
-  console.error(`❌ HANDLE ERRORS (${context}):`, error);
-  
   // 1. Verifica se é erro do Zod
   if (error instanceof ZodError) {
     const errors = error.issues || error.errors || [];
@@ -237,12 +367,10 @@ function handleErrors(res, error, context) {
 
   // 2. Verifica se é erro do Prisma
   if (error && typeof error === 'object' && 'code' in error) {
-    // Log detalhado do erro Prisma
     console.error(`❌ PRISMA ERROR (${context}):`, {
       code: error.code,
       message: error.message,
-      meta: error.meta,
-      clientVersion: error.clientVersion
+      meta: error.meta
     });
 
     switch (error.code) {
@@ -283,7 +411,6 @@ function handleErrors(res, error, context) {
           message: `Valor inválido para o campo "${error.meta?.path || 'desconhecido'}"`
         });
 
-      // 🔥 ADICIONADO: Erro de tipo de campo
       case 'P2006':
         return res.status(400).json({
           success: false,
@@ -318,10 +445,11 @@ function handleErrors(res, error, context) {
   });
 }
 
+// 🔥 EXPORTAÇÃO CORRIGIDA - TODAS AS FUNÇÕES ESTÃO DEFINIDAS
 export default { 
   store, 
   update, 
-  show, 
+  show,    // ✅ Agora show está definido
   destroy, 
   timeline,
   sanitizeHistoricoData,
