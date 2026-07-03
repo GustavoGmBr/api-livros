@@ -270,15 +270,23 @@ const capituloController = {
       return handleError(res, error);
     }
   },
-  async listarTodos(req, res) {
-    try {
-      const capitulos = await prisma.capitulos.findMany({
+  // GET /capitulos
+async listarTodos(req, res) {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const take = Number(limit);
+
+    const [capitulos, total] = await Promise.all([
+      prisma.capitulos.findMany({
+        skip,
+        take,
         orderBy: [
           { livro_id: "asc" },
           { numero: "asc" }
         ],
         include: {
-          livro: {
+          livros: {  // <-- CORRIGIDO: "livros" em vez de "livro"
             select: {
               id: true,
               titulo: true,
@@ -289,13 +297,23 @@ const capituloController = {
             orderBy: { numero: "asc" }
           }
         }
-      });
+      }),
+      prisma.capitulos.count()
+    ]);
 
-      return res.json(toJSON(capitulos));
-    } catch (error) {
-      return handleError(res, error);
-    }
-  },
+    return res.json(toJSON({
+      data: capitulos,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit))
+      }
+    }));
+  } catch (error) {
+    return handleError(res, error);
+  }
+},
   // PATCH /capitulos/:id/limpar-conteudo
   async destroyConteudo(req, res) {
     try {
