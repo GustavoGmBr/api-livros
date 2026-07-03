@@ -32,22 +32,22 @@ model livros {
 }
 
 model capitulos {
-  id                         Int                    @id @default(autoincrement())
-  livro_id                   Int
-  parent_id                  Int?
-  numero                     Int
-  titulo                     String
-  personagens_participantes  Json?
-  formas_participantes       Json?
-  itens_participantes        Json?
-  locais_participantes       Json?
-  criaturas_participantes    Json?                  // <-- NOVO CAMPO
-  conteudo_json              Json?
-  livros                     livros                 @relation(fields: [livro_id], references: [id], onDelete: Cascade)
-  parent                     capitulos?             @relation("SubCapitulos", fields: [parent_id], references: [id], onDelete: Cascade)
-  children                   capitulos[]            @relation("SubCapitulos")
-  personagemHistoricos       personagem_historico[]
-  inventarios                inventarios[]
+  id                        Int                    @id @default(autoincrement())
+  livro_id                  Int
+  parent_id                 Int?
+  numero                    Int
+  titulo                    String
+  personagens_participantes Json?
+  formas_participantes      Json?
+  itens_participantes       Json?
+  locais_participantes      Json?
+  criaturas_participantes   Json? // <-- NOVO CAMPO
+  conteudo_json             Json?
+  livros                    livros                 @relation(fields: [livro_id], references: [id], onDelete: Cascade)
+  parent                    capitulos?             @relation("SubCapitulos", fields: [parent_id], references: [id], onDelete: Cascade)
+  children                  capitulos[]            @relation("SubCapitulos")
+  personagemHistoricos      personagem_historico[]
+  inventarios               inventarios[]
 
   @@index([livro_id], map: "livro_id")
   @@index([parent_id], map: "parent_id")
@@ -97,7 +97,7 @@ model personagens {
 }
 
 model personagem_historico {
-  id                    Int          @id @default(autoincrement())
+  id                    Int         @id @default(autoincrement())
   personagem_id         Int
   livro_id              Int?
   capitulo_id           Int?
@@ -105,15 +105,15 @@ model personagem_historico {
   titulo                String?
   raca_id               Int
   ranque                String?
-  subnivel              Int          @default(1)
+  subnivel              Int         @default(1)
   classificacao         String?
-  nivel                 Int          @default(1)
-  xpAtual               Int          @default(0)
-  xpProximo             Int          @default(100)
-  qtd_treino            Int          @default(0)
-  ponto_combate         Int          @default(0)
-  ponto_combateAetheris Int          @default(0)
-  bonusPCErion          Int          @default(0)
+  nivel                 Int         @default(1)
+  xpAtual               Int         @default(0)
+  xpProximo             Int         @default(100)
+  qtd_treino            Int         @default(0)
+  ponto_combate         Int         @default(0)
+  ponto_combateAetheris Int         @default(0)
+  bonusPCErion          Int         @default(0)
   classes               String?
   estilo_luta           String?
   maestria              String?
@@ -121,12 +121,12 @@ model personagem_historico {
   equipamento           Json?
   habilidades           Json?
   formas_desbloqueadas  Json? //{ "forma_id": 1, "pcForma": 10000, "ranque": "Divino", "bonusAetheris": 150  },
-  criado_em             DateTime     @default(now())
+  criado_em             DateTime    @default(now())
   // inventario removido daqui
-  capitulo              capitulos?   @relation(fields: [capitulo_id], references: [id])
-  livro                 livros?      @relation(fields: [livro_id], references: [id])
-  personagem            personagens  @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
-  raca                  racas        @relation(fields: [raca_id], references: [id])
+  capitulo              capitulos?  @relation(fields: [capitulo_id], references: [id])
+  livro                 livros?     @relation(fields: [livro_id], references: [id])
+  personagem            personagens @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
+  raca                  racas       @relation(fields: [raca_id], references: [id])
 
   @@index([personagem_id])
   @@index([capitulo_id], map: "personagem_historico_capitulo_id_fkey")
@@ -136,15 +136,17 @@ model personagem_historico {
 }
 
 model personagem_forma {
-  id            Int          @id @default(autoincrement())
-  personagem_id Int          @map("personagem_id")
+  id            Int         @id @default(autoincrement())
+  personagem_id Int         @map("personagem_id")
   nome          String
-  descricao     String?      @db.Text
-  imagemRosto   String?      @map("imagem_rosto")
-  imagemCorpo   String?      @map("imagem_corpo")
-  criado_em     DateTime     @default(now())
-  atualizado_em DateTime     @updatedAt
-  personagem    personagens  @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
+  descricao     String?     @db.Text
+  imagemRosto   String?     @map("imagem_rosto")
+  imagemCorpo   String?     @map("imagem_corpo")
+  criado_em     DateTime    @default(now())
+  atualizado_em DateTime    @updatedAt
+  personagem    personagens @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
+  sistemas      sistemas?   @relation(fields: [sistemasId], references: [id])
+  sistemasId    Int?
 
   @@index([personagem_id])
   @@map("personagem_formas")
@@ -152,7 +154,7 @@ model personagem_forma {
 
 model inventarios {
   id           Int       @id @default(autoincrement())
-  capitulo_id  Int       // <-- Modificado de historico_id para capitulo_id
+  capitulo_id  Int // <-- Modificado de historico_id para capitulo_id
   nome         String    @db.VarChar(255)
   descricao    String?   @db.Text
   tipo         String?   @db.VarChar(100)
@@ -220,6 +222,7 @@ model itens {
 
   @@map("itens")
 }
+
 model bestiario {
   id                    Int      @id @default(autoincrement())
   nome                  String   @db.VarChar(255)
