@@ -2,16 +2,24 @@ import prisma from '../lib/prisma.js';
 import { historicoSchema } from '../validator/historico.validator.js';
 import { ZodError } from 'zod';
 
-// 🔥 Função para sanitizar os dados - remove o relacionamento direto e previne quebras
+// No seu arquivo historico.controller.js, atualize a função:
 const sanitizeHistoricoData = (data) => {
   const { inventario, ...rest } = data;
-  
-  // O Zod já valida e coage a estrutura de formas_desbloqueadas corretamente,
-  // mas garantimos que se for nulo/indefinido ele passe de forma limpa para o Prisma.
+
+  if (rest.formas_desbloqueadas && Array.isArray(rest.formas_desbloqueadas)) {
+    rest.formas_desbloqueadas = rest.formas_desbloqueadas.map((forma) => ({
+      forma_id: Number(forma.forma_id),
+      subnivel: Number(forma.subnivel) || 1, // 🔥 Adicionado aqui
+      pcForma: Number(forma.pcForma) || 0,
+      ranque: forma.ranque || '',
+      bonusAetheris: Number(forma.bonusAetheris) || 0
+    }));
+  }
+
   if (rest.formas_desbloqueadas === undefined) {
     rest.formas_desbloqueadas = null;
   }
-  
+
   return rest;
 };
 
@@ -19,7 +27,7 @@ const store = async (req, res) => {
   try {
     // Parse e validação dos dados (Zod já valida e converte a nova estrutura de formas_desbloqueadas)
     const validatedData = historicoSchema.parse(req.body);
-    
+
     // 🔥 SANITIZAR: Remover o campo inventario (tabela relacionada) antes de salvar no Prisma
     const dataToSave = sanitizeHistoricoData(validatedData);
 
@@ -31,7 +39,7 @@ const store = async (req, res) => {
 
     const historico = await prisma.personagem_historico.create({
       data: dataToSave,
-      include: { 
+      include: {
         raca: true,
         livro: true,
         capitulo: {
@@ -57,7 +65,7 @@ const update = async (req, res) => {
 
   try {
     const validatedData = historicoSchema.parse(req.body);
-    
+
     // 🔥 SANITIZAR: Remover o campo inventario antes de atualizar no Prisma
     const dataToSave = sanitizeHistoricoData(validatedData);
 
@@ -70,7 +78,7 @@ const update = async (req, res) => {
     const historico = await prisma.personagem_historico.update({
       where: { id: historicoId },
       data: dataToSave,
-      include: { 
+      include: {
         raca: true,
         livro: true,
         capitulo: {
@@ -107,11 +115,11 @@ const show = async (req, res) => {
         }
       }
     });
-    
+
     if (!historico) {
       return res.status(404).json({ error: 'Registro não encontrado' });
     }
-    
+
     return res.json(historico);
   } catch (error) {
     console.error('❌ Erro no show:', error);
@@ -128,15 +136,15 @@ const timeline = async (req, res) => {
         raca: true,
         livro: { select: { titulo: true } },
         capitulo: {
-          select: { 
-            numero: true, 
+          select: {
+            numero: true,
             titulo: true,
             inventarios: {
               include: {
                 itens: { select: { nome: true } }
               }
             }
-          } 
+          }
         }
       },
       orderBy: { criado_em: 'desc' }
@@ -166,11 +174,11 @@ function handleErrors(res, error, context) {
   // 1. Verifica se é erro do Zod (com fallbacks de segurança para evitar o erro de .map)
   if (error instanceof ZodError || (error && error.name === 'ZodError')) {
     const listadeErros = error.errors || error.issues || [];
-    
+
     console.error('❌ Erro de validação Zod:', JSON.stringify(listadeErros, null, 2));
-    
-    return res.status(400).json({ 
-      error: "Erro de validação", 
+
+    return res.status(400).json({
+      error: "Erro de validação",
       detalhes: listadeErros.map(e => ({
         campo: e.path?.join('.') || 'campo desconhecido',
         mensagem: e.message,
@@ -179,26 +187,26 @@ function handleErrors(res, error, context) {
       }))
     });
   }
-  
+
   // 2. Verifica se é erro do Prisma
   if (error && typeof error === 'object' && 'code' in error) {
     if (error.code === 'P2025') {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Registro não encontrado',
         message: 'O registro que você está tentando modificar não existe.'
       });
     }
-    
+
     if (error.code === 'P2002') {
       const target = error.meta?.target || 'campo desconhecido';
-      return res.status(409).json({ 
+      return res.status(409).json({
         error: `Conflito: O valor para "${target}" já existe`,
         message: 'Já existe um registro com este valor.'
       });
     }
-    
+
     if (error.code === 'P2003') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Erro de integridade: Referência inválida',
         message: 'O valor de referência não existe no banco de dados.',
         detalhe: error.meta?.field_name || 'Campo desconhecido'
@@ -206,20 +214,20 @@ function handleErrors(res, error, context) {
     }
 
     if (error.code === 'P2011') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Campo obrigatório não preenchido',
         message: error.meta?.message || 'Um campo obrigatório está faltando.'
       });
     }
   }
-  
+
   // 3. Erros genéricos ou falhas inesperadas
   console.error(`❌ Erro interno (${context}):`, error);
-  
+
   const mensagem = error?.message || 'Erro interno do servidor';
   const stack = process.env.NODE_ENV === 'development' ? error?.stack : undefined;
-  
-  return res.status(500).json({ 
+
+  return res.status(500).json({
     error: `Erro interno no servidor (${context})`,
     message: mensagem,
     ...(stack && { stack })

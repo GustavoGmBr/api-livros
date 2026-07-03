@@ -30,11 +30,12 @@ export const historicoSchema = z.object({
   elementos: z.any().optional().nullable(),
   equipamento: z.any().optional().nullable(),
   habilidades: z.any().optional().nullable(),
-  
-  // Nova estrutura tipada para o array de formas desbloqueadas
+
+  // No seu arquivo historico.validator.js, atualize o campo formas_desbloqueadas:
   formas_desbloqueadas: z.array(
     z.object({
       forma_id: z.coerce.number({ invalid_type_error: "ID da forma inválido" }),
+      subnivel: z.coerce.number().int().default(1), // 🔥 Adicionado aqui
       pcForma: z.coerce.number({ invalid_type_error: "PC da forma inválido" }),
       ranque: z.string({ invalid_type_error: "Ranque deve ser uma string" }),
       bonusAetheris: z.coerce.number({ invalid_type_error: "Bônus Aetheris inválido" })
