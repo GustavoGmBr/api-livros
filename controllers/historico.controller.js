@@ -2,18 +2,14 @@ import prisma from '../lib/prisma.js';
 import { historicoSchema } from '../validator/historico.validator.js';
 import { ZodError } from 'zod';
 
-// 🔥 Função para sanitizar os dados - remove campos extras e garante formato correto
+// 🔥 Função para sanitizar os dados - remove o relacionamento direto e previne quebras
 const sanitizeHistoricoData = (data) => {
   const { inventario, ...rest } = data;
   
-  // 🔥 Garantir que formas_desbloqueadas só tenha os campos permitidos
-  if (rest.formas_desbloqueadas && Array.isArray(rest.formas_desbloqueadas)) {
-    rest.formas_desbloqueadas = rest.formas_desbloqueadas.map((forma) => ({
-      forma_id: Number(forma.forma_id),
-      pcForma: Number(forma.pcForma) || 0,
-      ranque: forma.ranque || '',
-      bonusAetheris: Number(forma.bonusAetheris) || 0
-    }));
+  // O Zod já valida e coage a estrutura de formas_desbloqueadas corretamente,
+  // mas garantimos que se for nulo/indefinido ele passe de forma limpa para o Prisma.
+  if (rest.formas_desbloqueadas === undefined) {
+    rest.formas_desbloqueadas = null;
   }
   
   return rest;
@@ -21,10 +17,10 @@ const sanitizeHistoricoData = (data) => {
 
 const store = async (req, res) => {
   try {
-    // Parse e validação dos dados
+    // Parse e validação dos dados (Zod já valida e converte a nova estrutura de formas_desbloqueadas)
     const validatedData = historicoSchema.parse(req.body);
     
-    // 🔥 SANITIZAR: Remover campos extras e garantir formato correto
+    // 🔥 SANITIZAR: Remover o campo inventario (tabela relacionada) antes de salvar no Prisma
     const dataToSave = sanitizeHistoricoData(validatedData);
 
     // 🔥 LOG para debug
@@ -62,7 +58,7 @@ const update = async (req, res) => {
   try {
     const validatedData = historicoSchema.parse(req.body);
     
-    // 🔥 SANITIZAR: Remover campos extras e garantir formato correto
+    // 🔥 SANITIZAR: Remover o campo inventario antes de atualizar no Prisma
     const dataToSave = sanitizeHistoricoData(validatedData);
 
     // 🔥 LOG para debug
@@ -165,9 +161,8 @@ const destroy = async (req, res) => {
   }
 };
 
-// 🔥 FUNÇÃO handleErrors CORRIGIDA
+// 🔥 FUNÇÃO handleErrors
 function handleErrors(res, error, context) {
-  // 🔥 Verifica se é erro do Zod
   if (error instanceof ZodError) {
     console.error('❌ Erro de validação Zod:', JSON.stringify(error.errors, null, 2));
     return res.status(400).json({ 
@@ -181,9 +176,7 @@ function handleErrors(res, error, context) {
     });
   }
   
-  // 🔥 Verifica se é erro do Prisma
   if (error && typeof error === 'object' && 'code' in error) {
-    // Erro de registro não encontrado
     if (error.code === 'P2025') {
       return res.status(404).json({ 
         error: 'Registro não encontrado',
@@ -191,7 +184,6 @@ function handleErrors(res, error, context) {
       });
     }
     
-    // Erro de chave duplicada
     if (error.code === 'P2002') {
       const target = error.meta?.target || 'campo desconhecido';
       return res.status(409).json({ 
@@ -200,7 +192,6 @@ function handleErrors(res, error, context) {
       });
     }
     
-    // Erro de foreign key
     if (error.code === 'P2003') {
       return res.status(400).json({ 
         error: 'Erro de integridade: Referência inválida',
@@ -209,7 +200,6 @@ function handleErrors(res, error, context) {
       });
     }
 
-    // Erro de campo obrigatório
     if (error.code === 'P2011') {
       return res.status(400).json({ 
         error: 'Campo obrigatório não preenchido',
@@ -218,10 +208,8 @@ function handleErrors(res, error, context) {
     }
   }
   
-  // 🔥 Erros genéricos - log do erro completo
   console.error(`❌ Erro interno (${context}):`, error);
   
-  // 🔥 Verifica se error tem mensagem
   const mensagem = error?.message || 'Erro interno do servidor';
   const stack = process.env.NODE_ENV === 'development' ? error?.stack : undefined;
   
