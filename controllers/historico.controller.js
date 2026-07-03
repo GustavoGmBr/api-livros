@@ -11,7 +11,7 @@ const store = async (req, res) => {
     const { inventario, ...rest } = validatedData;
 
     // 🔥 LOG para debug
-    console.log('📦 Dados validados:', JSON.stringify({
+    console.log('📦 Dados validados (store):', JSON.stringify({
       ...rest,
       formas_desbloqueadas: rest.formas_desbloqueadas?.length || 0
     }, null, 2));
@@ -47,6 +47,12 @@ const update = async (req, res) => {
     
     // 🔥 EXTRAIR campos que não devem ir para o banco diretamente
     const { inventario, ...rest } = validatedData;
+
+    // 🔥 LOG para debug
+    console.log('📦 Dados validados (update):', JSON.stringify({
+      ...rest,
+      formas_desbloqueadas: rest.formas_desbloqueadas?.length || 0
+    }, null, 2));
 
     const historico = await prisma.personagem_historico.update({
       where: { id: historicoId },
@@ -136,7 +142,9 @@ const destroy = async (req, res) => {
   }
 };
 
+// 🔥 FUNÇÃO handleErrors CORRIGIDA
 function handleErrors(res, error, context) {
+  // 🔥 Verifica se é erro do Zod
   if (error instanceof ZodError) {
     console.error('❌ Erro de validação Zod:', JSON.stringify(error.errors, null, 2));
     return res.status(400).json({ 
@@ -149,18 +157,39 @@ function handleErrors(res, error, context) {
     });
   }
   
-  if (error.code === 'P2025') {
-    return res.status(404).json({ error: 'Registro não encontrado' });
+  // 🔥 Verifica se é erro do Prisma
+  if (error.code) {
+    // Erro de registro não encontrado
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Registro não encontrado' });
+    }
+    
+    // Erro de chave duplicada
+    if (error.code === 'P2002') {
+      const target = error.meta?.target || 'campo desconhecido';
+      return res.status(409).json({ 
+        error: `Conflito: O valor para "${target}" já existe` 
+      });
+    }
+    
+    // Erro de foreign key
+    if (error.code === 'P2003') {
+      return res.status(400).json({ 
+        error: 'Erro de integridade: Referência inválida',
+        detalhe: error.meta?.field_name || 'Campo desconhecido'
+      });
+    }
   }
   
-  if (error.code === 'P2002') {
-    return res.status(409).json({ error: 'Conflito: Registro duplicado' });
-  }
+  // 🔥 Erros genéricos
+  console.error(`❌ Erro interno (${context}):`, error);
   
-  console.error(`❌ Erro Prisma (${context}):`, error);
+  // 🔥 Verifica se error tem mensagem
+  const mensagem = error?.message || 'Erro interno do servidor';
+  
   return res.status(500).json({ 
     error: `Erro interno no servidor (${context})`,
-    message: error.message || 'Erro desconhecido'
+    message: mensagem
   });
 }
 
