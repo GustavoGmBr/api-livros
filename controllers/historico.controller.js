@@ -7,11 +7,8 @@ const store = async (req, res) => {
     // Parse e validação dos dados
     const validatedData = historicoSchema.parse(req.body);
     
-    // 🔥 EXTRAIR campos que não são do modelo principal
+    // 🔥 EXTRAIR formas_desbloqueadas para tratamento especial
     const { inventario, formas_desbloqueadas, ...rest } = validatedData;
-
-    // 🔥 REMOVER qualquer raca_id que possa ter vindo no rest
-    delete rest.raca_id;
 
     // 🔥 PREPARAR dados para o Prisma
     const dataToSave = {
@@ -22,6 +19,7 @@ const store = async (req, res) => {
         : null
     };
 
+    // 🔥 LOG para debug
     console.log('📦 Dados a serem salvos:', JSON.stringify(dataToSave, null, 2));
 
     const historico = await prisma.personagem_historico.create({
@@ -53,11 +51,10 @@ const update = async (req, res) => {
   try {
     const validatedData = historicoSchema.parse(req.body);
     
+    // 🔥 EXTRAIR formas_desbloqueadas para tratamento especial
     const { inventario, formas_desbloqueadas, ...rest } = validatedData;
 
-    // 🔥 REMOVER qualquer raca_id que possa ter vindo no rest
-    delete rest.raca_id;
-
+    // 🔥 PREPARAR dados para o Prisma
     const dataToSave = {
       ...rest,
       formas_desbloqueadas: formas_desbloqueadas && formas_desbloqueadas.length > 0 
@@ -168,14 +165,6 @@ function handleErrors(res, error, context) {
   
   if (error.code === 'P2002') {
     return res.status(409).json({ error: 'Conflito: Registro duplicado' });
-  }
-
-  if (error.code === 'P2003') {
-    return res.status(400).json({ 
-      error: 'Erro de chave estrangeira',
-      message: error.message,
-      field: error.meta?.field_name || 'campo desconhecido'
-    });
   }
   
   console.error(`❌ Erro Prisma (${context}):`, error);
