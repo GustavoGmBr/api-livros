@@ -8,7 +8,7 @@ export const historicoSchema = z.object({
   livro_id: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().nullable().optional()),
   capitulo_id: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().nullable().optional()),
 
-  idade: z.string().nullable().optional(),
+  idade: z.coerce.number().nullable().optional(),
   titulo: z.string().nullable().optional(),
   ranque: z.string().nullable().optional(),
   classificacao: z.string().nullable().optional(),

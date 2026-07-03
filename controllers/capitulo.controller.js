@@ -322,7 +322,6 @@ const capituloController = {
       return handleError(res, error);
     }
   },
-  // GET /capitulos - Versão MAIS COMPLETA
   async listarTodos(req, res) {
     try {
       const { page = 1, limit = 20 } = req.query;
@@ -473,18 +472,18 @@ const capituloController = {
             fIds.length > 0
               ? prisma.personagem_forma.findMany({
                 where: { id: { in: fIds } },
-                include: {
+                select: {
+                  id: true,
+                  nome: true,
+                  descricao: true,
+                  imagemRosto: true,
+                  imagemCorpo: true,
+                  personagem_id: true,
                   personagem: {
                     select: {
                       id: true,
                       nome: true,
                       imagemRosto: true
-                    }
-                  },
-                  sistema: {
-                    select: {
-                      id: true,
-                      nome: true
                     }
                   }
                 }
