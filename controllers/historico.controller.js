@@ -5,21 +5,21 @@ import { ZodError } from 'zod';
 // No seu arquivo historico.controller.js, atualize a função:
 const sanitizeHistoricoData = (data) => {
   const { inventario, ...rest } = data;
-
+  
   if (rest.formas_desbloqueadas && Array.isArray(rest.formas_desbloqueadas)) {
     rest.formas_desbloqueadas = rest.formas_desbloqueadas.map((forma) => ({
       forma_id: Number(forma.forma_id),
-      subnivel: Number(forma.subnivel) || 1, // 🔥 Adicionado aqui
+      subnivel: Number(forma.subnivel) || 1,
       pcForma: Number(forma.pcForma) || 0,
-      ranque: forma.ranque || '',
+      bonusPC: Number(forma.bonusPC) || 0,
       bonusAetheris: Number(forma.bonusAetheris) || 0
     }));
   }
-
+  
   if (rest.formas_desbloqueadas === undefined) {
     rest.formas_desbloqueadas = null;
   }
-
+  
   return rest;
 };
 

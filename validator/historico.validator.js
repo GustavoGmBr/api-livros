@@ -31,16 +31,16 @@ export const historicoSchema = z.object({
   equipamento: z.any().optional().nullable(),
   habilidades: z.any().optional().nullable(),
 
-  // No seu arquivo historico.validator.js, atualize o campo formas_desbloqueadas:
   formas_desbloqueadas: z.array(
     z.object({
       forma_id: z.coerce.number({ invalid_type_error: "ID da forma inválido" }),
-      subnivel: z.coerce.number().int().default(1), // 🔥 Adicionado aqui
-      pcForma: z.coerce.number({ invalid_type_error: "PC da forma inválido" }),
-      ranque: z.string({ invalid_type_error: "Ranque deve ser uma string" }),
-      bonusAetheris: z.coerce.number({ invalid_type_error: "Bônus Aetheris inválido" })
+      subnivel: z.coerce.number().int().min(1).max(5).default(1), // Limitado de 1 a 5 estrelas
+      pcForma: z.coerce.number({ invalid_type_error: "PC de Erion inválido" }),
+      bonusPC: z.coerce.number({ invalid_type_error: "Bônus PC inválido" }).default(0),
+      bonusAetheris: z.coerce.number({ invalid_type_error: "Bônus Aetheris inválido" }).default(0)
     })
   ).optional().nullable(),
+
 
   // Como no banco é uma tabela relacionada (inventarios[]), deixamos opcional para o validador principal
   inventario: z.array(z.any()).optional().default([])
