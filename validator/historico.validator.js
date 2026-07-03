@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 export const historicoSchema = z.object({
   personagem_id: z.coerce.number({ invalid_type_error: "ID do personagem inválido" }),
-  raca_id: z.coerce.number({ invalid_type_error: "ID da raça inválido" }),
+
+  // 🔥 REMOVER raca_id do nível principal - agora está dentro de formas_desbloqueadas
+  // raca_id: z.coerce.number({ invalid_type_error: "ID da raça inválido" }),
 
   // Aceita strings vazias vindas de selects do HTML e converte para null (idêntico ao banco)
   livro_id: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().nullable().optional()),
@@ -26,12 +28,12 @@ export const historicoSchema = z.object({
   ponto_combateAetheris: z.coerce.number().int().default(0),
   bonusPCErion: z.coerce.number().int().default(0),
 
-  // 🔥 CORREÇÃO: Campos Json com validação específica para o formato correto
+  // Campos Json
   elementos: z.any().optional().nullable(),
   equipamento: z.any().optional().nullable(),
   habilidades: z.any().optional().nullable(),
   
-  // 🔥 CORREÇÃO: Validação específica para formas_desbloqueadas
+  // 🔥 CORREÇÃO: formas_desbloqueadas com validação específica
   formas_desbloqueadas: z.preprocess(
     (val) => {
       // Se for string vazia, retorna null
@@ -56,7 +58,9 @@ export const historicoSchema = z.object({
         forma_id: z.number().or(z.coerce.number()),
         pcForma: z.number().or(z.coerce.number()).optional().default(0),
         ranque: z.string().optional().nullable(),
-        bonusAetheris: z.number().or(z.coerce.number()).optional().default(0)
+        bonusAetheris: z.number().or(z.coerce.number()).optional().default(0),
+        // 🔥 ADICIONAR raca_id dentro de cada forma
+        raca_id: z.number().or(z.coerce.number()).optional().nullable()
       })
     ).nullable().optional()
   ),
@@ -65,5 +69,5 @@ export const historicoSchema = z.object({
   inventario: z.array(z.any()).optional().default([])
 });
 
-// 🔥 Schema para validação parcial (update)
+// Schema para validação parcial (update)
 export const historicoUpdateSchema = historicoSchema.partial();
