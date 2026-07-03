@@ -270,7 +270,7 @@ const capituloController = {
       return handleError(res, error);
     }
   },
-  // GET /capitulos
+  // GET /capitulos - Versão MAIS COMPLETA
 async listarTodos(req, res) {
   try {
     const { page = 1, limit = 20 } = req.query;
@@ -286,23 +286,218 @@ async listarTodos(req, res) {
           { numero: "asc" }
         ],
         include: {
-          livros: {  // <-- CORRIGIDO: "livros" em vez de "livro"
-            select: {
-              id: true,
-              titulo: true,
-              genero: true
+          // Dados completos do livro
+          livros: {
+            include: {
+              saga: {
+                select: {
+                  id: true,
+                  nome: true,
+                  descricao: true
+                }
+              }
             }
           },
+          // Subcapítulos (filhos)
           children: {
-            orderBy: { numero: "asc" }
+            orderBy: { numero: "asc" },
+            include: {
+              children: {  // Netos (sub-subcapítulos)
+                orderBy: { numero: "asc" }
+              }
+            }
+          },
+          // Capítulo pai (se for subcapítulo)
+          parent: {
+            select: {
+              id: true,
+              numero: true,
+              titulo: true
+            }
+          },
+          // Inventários associados
+          inventarios: {
+            include: {
+              itens: {
+                select: {
+                  id_item: true,
+                  nome: true,
+                  tipo: true,
+                  descricao: true,
+                  aparencia: true,
+                  listaHabilidades: true,
+                  urlImagem: true
+                }
+              }
+            }
+          },
+          // Históricos de personagens neste capítulo
+          personagemHistoricos: {
+            include: {
+              personagem: {
+                select: {
+                  id: true,
+                  nome: true,
+                  titulo: true,
+                  mundo_origem: true,
+                  classe: true,
+                  afiliacao: true,
+                  imagemRosto: true,
+                  imagemCorpo: true
+                }
+              },
+              raca: {
+                select: {
+                  id: true,
+                  nome: true,
+                  mundo: true,
+                  sistema: {
+                    select: {
+                      id: true,
+                      nome: true
+                    }
+                  }
+                }
+              },
+              livro: {
+                select: {
+                  id: true,
+                  titulo: true
+                }
+              }
+            }
           }
         }
       }),
       prisma.capitulos.count()
     ]);
 
+    // Processar cada capítulo para incluir detalhes dos participantes
+    const capitulosComDetalhes = await Promise.all(
+      capitulos.map(async (capitulo) => {
+        // Parse dos IDs dos participantes
+        const parseIds = (field) => {
+          if (!field) return [];
+          if (Array.isArray(field)) return field.map(Number).filter(Boolean);
+          try {
+            const parsed = typeof field === 'string' ? JSON.parse(field) : field;
+            return Array.isArray(parsed) ? parsed.map(Number).filter(Boolean) : [];
+          } catch {
+            return [];
+          }
+        };
+
+        const pIds = parseIds(capitulo.personagens_participantes);
+        const fIds = parseIds(capitulo.formas_participantes);
+        const lIds = parseIds(capitulo.locais_participantes);
+        const iIds = parseIds(capitulo.itens_participantes);
+        const cIds = parseIds(capitulo.criaturas_participantes);
+
+        // Buscar todos os detalhes dos participantes
+        const [personagens, formas, locais, itens, criaturas] = await Promise.all([
+          pIds.length > 0
+            ? prisma.personagens.findMany({
+                where: { id: { in: pIds } },
+                select: {
+                  id: true,
+                  nome: true,
+                  titulo: true,
+                  mundo_origem: true,
+                  classe: true,
+                  afiliacao: true,
+                  imagemRosto: true,
+                  imagemCorpo: true,
+                  formas: {
+                    select: {
+                      id: true,
+                      nome: true,
+                      ranque: true,
+                      subnivel: true
+                    }
+                  }
+                }
+              })
+            : [],
+          fIds.length > 0
+            ? prisma.personagem_forma.findMany({
+                where: { id: { in: fIds } },
+                include: {
+                  personagem: {
+                    select: {
+                      id: true,
+                      nome: true,
+                      imagemRosto: true
+                    }
+                  },
+                  sistema: {
+                    select: {
+                      id: true,
+                      nome: true
+                    }
+                  }
+                }
+              })
+            : [],
+          lIds.length > 0
+            ? prisma.locais.findMany({
+                where: { id: { in: lIds } },
+                select: {
+                  id: true,
+                  nome: true,
+                  mundo: true,
+                  descricao: true,
+                  imagem: true
+                }
+              })
+            : [],
+          iIds.length > 0
+            ? prisma.itens.findMany({
+                where: { id_item: { in: iIds } },
+                select: {
+                  id_item: true,
+                  nome: true,
+                  tipo: true,
+                  descricao: true,
+                  aparencia: true,
+                  listaHabilidades: true,
+                  urlImagem: true
+                }
+              })
+            : [],
+          cIds.length > 0
+            ? prisma.bestiario.findMany({
+                where: { id: { in: cIds } },
+                select: {
+                  id: true,
+                  nome: true,
+                  tipo: true,
+                  descricao: true,
+                  mundo: true,
+                  ranque: true,
+                  subnivel: true,
+                  classificacao: true,
+                  nivelMedio: true,
+                  ponto_combate: true,
+                  ponto_combateAetheris: true,
+                  imagemBestiario: true
+                }
+              })
+            : []
+        ]);
+
+        return {
+          ...capitulo,
+          personagens_detalhes: personagens,
+          formas_detalhes: formas,
+          locais_detalhes: locais,
+          itens_detalhes: itens,
+          criaturas_detalhes: criaturas
+        };
+      })
+    );
+
     return res.json(toJSON({
-      data: capitulos,
+      data: capitulosComDetalhes,
       pagination: {
         total,
         page: Number(page),
