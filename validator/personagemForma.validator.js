@@ -14,7 +14,6 @@ export const personagemFormaSchema = z.object({
     .min(1, "O nome não pode estar vazio")
     .max(255, "O nome deve ter no máximo 255 caracteres"),
     
-  // Se o usuário mandar uma string vazia "", o .transform() converte para null
   descricao: z.string()
     .trim()
     .optional()
@@ -42,8 +41,12 @@ export const personagemFormaSchema = z.object({
     .optional()
     .nullable()
     .transform((val) => (val === '' || isNaN(val) ? null : val)),
+
+  // 🔮 NOVO CAMPO NO VALIDADOR: Aceita números com ponto flutuante
+  bonusAetheris: z.coerce
+    .number()
+    .default(0),
   
-  // Transforma as strings vazias do formulário de imagem em null para o Prisma
   imagemRosto: z.string()
     .trim()
     .optional()

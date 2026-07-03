@@ -136,21 +136,25 @@ model personagem_historico {
 }
 
 model personagem_forma {
-  id            Int         @id @default(autoincrement())
-  personagem_id Int         @map("personagem_id")
-  sistema_id    Int         @map("sistema_id")
+  id            Int            @id @default(autoincrement())
+  personagem_id Int            @map("personagem_id")
+  sistema_id    Int            @map("sistema_id")
   nome          String
-  descricao     String?     @db.Text
+  descricao     String?        @db.Text
   ranque        String?
-  subnivel      Int         @default(1)
-  bonusPC       Float       @default(0) @map("bonus_pc")
-  pcForma       Int?        @map("pc_forma")
-  imagemRosto   String?     @map("imagem_rosto")
-  imagemCorpo   String?     @map("imagem_corpo")
-  criado_em     DateTime    @default(now())
-  atualizado_em DateTime    @updatedAt
-  personagem    personagens @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
-  sistema       sistemas    @relation(fields: [sistema_id], references: [id])
+  subnivel      Int            @default(1)
+  bonusPC       Float          @default(0) @map("bonus_pc")
+  pcForma       Int?           @map("pc_forma")
+  
+  // 🔮 NOVO CAMPO: Bônus de Aetheris em porcentagem (Ex: 15.00 significa +15%)
+  bonusAetheris Decimal        @default(0.00) @db.Decimal(5, 2) @map("bonus_aetheris")
+  
+  imagemRosto   String?        @map("imagem_rosto")
+  imagemCorpo   String?        @map("imagem_corpo")
+  criado_em     DateTime       @default(now())
+  atualizado_em DateTime       @updatedAt
+  personagem    personagens    @relation(fields: [personagem_id], references: [id], onDelete: Cascade)
+  sistema       sistemas       @relation(fields: [sistema_id], references: [id])
 
   @@index([personagem_id])
   @@index([sistema_id])
