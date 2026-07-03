@@ -7,10 +7,10 @@ const store = async (req, res) => {
     // Parse e validação dos dados
     const validatedData = historicoSchema.parse(req.body);
     
-    // 🔥 EXTRAIR campos que não devem ir para o banco diretamente
+    // EXTRAIR campos que não devem ir para o banco diretamente
     const { inventario, ...rest } = validatedData;
 
-    // 🔥 LOG para debug
+    // LOG para debug
     console.log('📦 Dados validados (store):', JSON.stringify({
       ...rest,
       formas_desbloqueadas: rest.formas_desbloqueadas?.length || 0
@@ -45,10 +45,10 @@ const update = async (req, res) => {
   try {
     const validatedData = historicoSchema.parse(req.body);
     
-    // 🔥 EXTRAIR campos que não devem ir para o banco diretamente
+    // EXTRAIR campos que não devem ir para o banco diretamente
     const { inventario, ...rest } = validatedData;
 
-    // 🔥 LOG para debug
+    // LOG para debug
     console.log('📦 Dados validados (update):', JSON.stringify({
       ...rest,
       formas_desbloqueadas: rest.formas_desbloqueadas?.length || 0
@@ -142,23 +142,19 @@ const destroy = async (req, res) => {
   }
 };
 
-// 🔥 FUNÇÃO handleErrors CORRIGIDA
+// 🔥 FUNÇÃO handleErrors CORRIGIDA - SEM .map()
 function handleErrors(res, error, context) {
   // 🔥 Verifica se é erro do Zod
   if (error instanceof ZodError) {
     console.error('❌ Erro de validação Zod:', JSON.stringify(error.errors, null, 2));
     return res.status(400).json({ 
       error: "Erro de validação", 
-      detalhes: error.errors.map(e => ({
-        campo: e.path.join('.'),
-        mensagem: e.message,
-        recebido: e.received
-      }))
+      detalhes: error.errors // Envia o array completo de erros
     });
   }
   
   // 🔥 Verifica se é erro do Prisma
-  if (error.code) {
+  if (error && typeof error === 'object' && 'code' in error) {
     // Erro de registro não encontrado
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Registro não encontrado' });
@@ -181,7 +177,7 @@ function handleErrors(res, error, context) {
     }
   }
   
-  // 🔥 Erros genéricos
+  // 🔥 Erros genéricos - log do erro completo
   console.error(`❌ Erro interno (${context}):`, error);
   
   // 🔥 Verifica se error tem mensagem
