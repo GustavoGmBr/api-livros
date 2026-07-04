@@ -30,14 +30,15 @@ export const historicoSchema = z.object({
   elementos: z.any().optional().nullable(),
   equipamento: z.any().optional().nullable(),
   habilidades: z.any().optional().nullable(),
-
   formas_desbloqueadas: z.array(
     z.object({
       forma_id: z.coerce.number({ invalid_type_error: "ID da forma inválido" }),
-      subnivel: z.coerce.number().int().min(1).max(5).default(1), // Limitado de 1 a 5 estrelas
-      pcForma: z.coerce.number({ invalid_type_error: "PC de Erion inválido" }),
+      subnivel: z.coerce.number().int().min(1).max(5).default(1),
+      pcForma: z.coerce.number({ invalid_type_error: "PC de Erion inválido" }).default(0),
       bonusPC: z.coerce.number({ invalid_type_error: "Bônus PC inválido" }).default(0),
-      bonusAetheris: z.coerce.number({ invalid_type_error: "Bônus Aetheris inválido" }).default(0)
+      bonusAetheris: z.coerce.number({ invalid_type_error: "Bônus Aetheris inválido" }).default(0),
+      // 🔥 NOVOS CAMPOS
+      ranque: z.string().optional().nullable().default(null)
     })
   ).optional().nullable(),
 

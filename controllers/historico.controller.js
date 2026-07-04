@@ -6,7 +6,7 @@ import { ZodError } from 'zod';
 // 🔥 Função para sanitizar dados antes de salvar
 const sanitizeHistoricoData = (data) => {
   const { inventario, ...rest } = data;
-  
+
   // Sanitiza formas_desbloqueadas
   if (rest.formas_desbloqueadas && Array.isArray(rest.formas_desbloqueadas)) {
     rest.formas_desbloqueadas = rest.formas_desbloqueadas
@@ -16,17 +16,18 @@ const sanitizeHistoricoData = (data) => {
         subnivel: Math.min(Math.max(Number(forma.subnivel) || 1, 1), 5),
         pcForma: Number(forma.pcForma) || 0,
         bonusPC: Number(forma.bonusPC) || 0,
-        bonusAetheris: Number(forma.bonusAetheris) || 0
+        bonusAetheris: Number(forma.bonusAetheris) || 0,
+        // 🔥 NOVOS CAMPOS
+        ranque: forma.ranque || null
       }));
   } else {
     rest.formas_desbloqueadas = null;
   }
-
   // Garante que campos numéricos sejam números
-  const numericFields = ['subnivel', 'nivel', 'xpAtual', 'xpProximo', 
-                         'qtd_treino', 'ponto_combate', 'ponto_combateAetheris', 
-                         'bonusPCErion'];
-  
+  const numericFields = ['subnivel', 'nivel', 'xpAtual', 'xpProximo',
+    'qtd_treino', 'ponto_combate', 'ponto_combateAetheris',
+    'bonusPCErion'];
+
   numericFields.forEach(field => {
     if (rest[field] !== undefined && rest[field] !== null) {
       rest[field] = Number(rest[field]) || 0;
@@ -62,7 +63,7 @@ const sanitizeHistoricoData = (data) => {
 // 🔥 Função para preparar dados para resposta
 const prepareHistoricoResponse = (historico) => {
   if (!historico) return null;
-  
+
   return {
     ...historico,
     elementos: historico.elementos || null,
@@ -91,8 +92,8 @@ const store = async (req, res) => {
         capitulo: {
           include: {
             inventarios: {
-              include: { 
-                itens: true 
+              include: {
+                itens: true
               }
             }
           }
@@ -152,8 +153,8 @@ const update = async (req, res) => {
         capitulo: {
           include: {
             inventarios: {
-              include: { 
-                itens: true 
+              include: {
+                itens: true
               }
             }
           }
@@ -196,8 +197,8 @@ const show = async (req, res) => {
         capitulo: {
           include: {
             inventarios: {
-              include: { 
-                itens: true 
+              include: {
+                itens: true
               }
             }
           }
@@ -257,9 +258,9 @@ const timeline = async (req, res) => {
       include: {
         raca: true,
         livro: {
-          select: { 
+          select: {
             id: true,
-            titulo: true 
+            titulo: true
           }
         },
         capitulo: {
@@ -269,13 +270,13 @@ const timeline = async (req, res) => {
             titulo: true,
             inventarios: {
               include: {
-                itens: { 
-                  select: { 
+                itens: {
+                  select: {
                     id: true,
                     nome: true,
                     descricao: true,
                     tipo: true
-                  } 
+                  }
                 }
               }
             }
@@ -446,13 +447,13 @@ function handleErrors(res, error, context) {
 }
 
 // 🔥 EXPORTAÇÃO CORRIGIDA - TODAS AS FUNÇÕES ESTÃO DEFINIDAS
-export default { 
-  store, 
-  update, 
+export default {
+  store,
+  update,
   show,    // ✅ Agora show está definido
-  destroy, 
+  destroy,
   timeline,
   sanitizeHistoricoData,
   prepareHistoricoResponse,
-  handleErrors 
+  handleErrors
 };

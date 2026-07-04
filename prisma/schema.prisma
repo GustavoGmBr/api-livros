@@ -101,7 +101,7 @@ model personagem_historico {
   personagem_id         Int
   livro_id              Int?
   capitulo_id           Int?
-  idade                 String?
+  idade                 Int?
   titulo                String?
   raca_id               Int
   ranque                String?
