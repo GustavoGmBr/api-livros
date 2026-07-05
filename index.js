@@ -7,12 +7,17 @@ dotenv.config();
 
 const app = express();
 
-// ✅ Configuração CORS (APENAS isso)
+// ✅ Configuração CORS Corrigida para Express v5/path-to-regexp v8
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// ✅ Middleware para garantir o retorno correto de requisições OPTIONS (Preflight) sem quebrar o roteador
+app.options('(.*)', cors());
 
 // ✅ Body parsers
 app.use(express.json());
@@ -35,8 +40,8 @@ app.get('/', (req, res) => {
 // ✅ Rotas da API
 app.use('/api', router);
 
-// ✅ Tratamento 404
-app.use((req, res) => {
+// ✅ Tratamento 404 (Usando a sintaxe universal segura)
+app.use('(.*)', (req, res) => {
   console.log(`⚠️ Rota não encontrada: ${req.method} ${req.url}`);
   res.status(404).json({ error: `Rota ${req.method} ${req.url} não encontrada` });
 });
