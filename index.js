@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-// ✅ Configuração CORS Corrigida para Express v5/path-to-regexp v8
+// ✅ Configuração CORS 
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -16,8 +16,8 @@ app.use(cors({
   optionsSuccessStatus: 204
 }));
 
-// ✅ Middleware para garantir o retorno correto de requisições OPTIONS (Preflight) sem quebrar o roteador
-app.options('(.*)', cors());
+// ✅ Regex pura para capturar todas as rotas OPTIONS sem quebrar o path-to-regexp
+app.options(/.*/, cors());
 
 // ✅ Body parsers
 app.use(express.json());
@@ -40,8 +40,8 @@ app.get('/', (req, res) => {
 // ✅ Rotas da API
 app.use('/api', router);
 
-// ✅ Tratamento 404 (Usando a sintaxe universal segura)
-app.use('(.*)', (req, res) => {
+// ✅ Tratamento 404 usando Regex pura
+app.use(/.*/, (req, res) => {
   console.log(`⚠️ Rota não encontrada: ${req.method} ${req.url}`);
   res.status(404).json({ error: `Rota ${req.method} ${req.url} não encontrada` });
 });
