@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CONFIGURAÇÃO CORS CORRETA - APENAS NO NODE.JS
+// ✅ CONFIGURAÇÃO CORS CORRETA
 const corsOptions = {
   origin: [
     'https://setimoelemento.com.br',
@@ -21,11 +21,10 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
-// Aplicar CORS
+// ✅ Aplicar CORS
 app.use(cors(corsOptions));
 
-// Para requisições OPTIONS (preflight)
-app.options('*', cors(corsOptions));
+// ❌ NÃO USE app.options('*', ...) - REMOVA ESTA LINHA
 
 // ✅ Body parsers
 app.use(express.json({ limit: '50mb' }));
@@ -51,6 +50,15 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3333;
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
+});
+
+// ✅ Tratamento de erros não capturados
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', reason);
 });
