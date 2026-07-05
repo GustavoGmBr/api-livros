@@ -70,4 +70,4 @@ export const uploadFormaEspecial = upload.fields([
   { name: 'rosto', maxCount: 1 }
 ]);
 
-export default upload;
+export default upload;    
