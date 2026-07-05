@@ -1,45 +1,53 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-// Removi o import do axios, pois ele não estava sendo usado no index.js e pode causar erro de build se não estiver no package.json
 import router from './routes/index.js';
 
 dotenv.config();
 
 const app = express();
 
-// ✅ Configuração de CORS robusta
-app.use(cors({
-  origin: '*', // Em produção, você pode trocar pelo link do seu front no Render
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// ✅ CONFIGURAÇÃO CORS CORRETA - APENAS NO NODE.JS
+const corsOptions = {
+  origin: [
+    'https://setimoelemento.com.br',
+    'https://www.setimoelemento.com.br',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
 
-// ✅ Middleware para ler JSON (Obrigatório para receber dados do Postman/Front)
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Adicionado para suportar diferentes formatos de requisição
+// Aplicar CORS
+app.use(cors(corsOptions));
 
-// ✅ Correção Global para BigInt (Essencial para o Prisma não quebrar no JSON.stringify)
+// Para requisições OPTIONS (preflight)
+app.options('*', cors(corsOptions));
+
+// ✅ Body parsers
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// ✅ BigInt fix
 BigInt.prototype.toJSON = function () {
   return this.toString();
 };
 
-// Rota de teste de saúde da API
-app.get('/', (req, res) => {
-  res.json({ 
-    status: 'online',
-    message: 'Setimo Elemento API is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// ✅ Montagem das rotas
+// ✅ Rotas
 app.use('/api', router);
 
-// ✅ Tratamento de rotas não encontradas (Ajuda a diagnosticar o 404)
+// ✅ Tratamento de erro 404
 app.use((req, res) => {
-  console.log(`⚠️ Rota não encontrada: ${req.method} ${req.url}`);
-  res.status(404).json({ error: `Rota ${req.method} ${req.url} não encontrada no servidor.` });
+  res.status(404).json({ error: 'Rota não encontrada' });
+});
+
+// ✅ Middleware de erro
+app.use((err, req, res, next) => {
+  console.error('❌ Erro:', err);
+  res.status(500).json({ error: err.message || 'Erro interno' });
 });
 
 const port = process.env.PORT || 3333;
