@@ -7,40 +7,38 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CONFIGURAÇÃO CORS CORRETA
-const corsOptions = {
-  origin: [
-    'https://setimoelemento.com.br',
-    'https://www.setimoelemento.com.br',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-
-// ✅ Aplicar CORS
-app.use(cors(corsOptions));
-
-// ❌ NÃO USE app.options('*', ...) - REMOVA ESTA LINHA
+// ✅ Configuração CORS (APENAS isso)
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // ✅ Body parsers
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ✅ BigInt fix
 BigInt.prototype.toJSON = function () {
   return this.toString();
 };
 
-// ✅ Rotas
+// ✅ Rota de teste
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    message: 'Setimo Elemento API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ✅ Rotas da API
 app.use('/api', router);
 
-// ✅ Tratamento de erro 404
+// ✅ Tratamento 404
 app.use((req, res) => {
-  res.status(404).json({ error: 'Rota não encontrada' });
+  console.log(`⚠️ Rota não encontrada: ${req.method} ${req.url}`);
+  res.status(404).json({ error: `Rota ${req.method} ${req.url} não encontrada` });
 });
 
 // ✅ Middleware de erro
@@ -50,15 +48,6 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3333;
-const server = app.listen(port, () => {
+app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
-});
-
-// ✅ Tratamento de erros não capturados
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection:', reason);
 });
