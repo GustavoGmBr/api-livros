@@ -1,5 +1,5 @@
 // controllers/historico.controller.js
-import prisma from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js'; // ✅ Usando importação nomeada
 import { historicoSchema } from '../validator/historico.validator.js';
 import { ZodError } from 'zod';
 
@@ -221,12 +221,14 @@ const show = async (req, res) => {
   }
 };
 
-// 🔥 TIMELINE - CORRIGIDO
 const timeline = async (req, res) => {
-  // Aceita ambos os nomes de parâmetro para compatibilidade
+  console.log('🔍 Timeline chamada com params:', req.params);
+  
   const { personagemId, personajeId } = req.params;
   const idParam = personagemId || personajeId;
   const personagemIdNum = Number(idParam);
+
+  console.log('🔍 ID processado:', { idParam, personagemIdNum });
 
   if (isNaN(personagemIdNum)) {
     return res.status(400).json({
@@ -237,6 +239,21 @@ const timeline = async (req, res) => {
   }
 
   try {
+    // 🔥 VERIFICAÇÃO EXPLÍCITA
+    if (!prisma || !prisma.personagem) {
+      console.error('❌ Prisma ou modelo personagem não disponível:', {
+        prisma: !!prisma,
+        personagem: prisma?.personagem ? 'disponível' : 'indisponível'
+      });
+      return res.status(500).json({
+        success: false,
+        error: 'Erro de configuração',
+        message: 'Prisma Client não foi inicializado corretamente'
+      });
+    }
+
+    console.log('🔍 Prisma disponível, buscando personagem...');
+
     const personagem = await prisma.personagem.findUnique({
       where: { id: personagemIdNum },
       select: { id: true, nome: true }
@@ -298,7 +315,11 @@ const timeline = async (req, res) => {
       message: response.length > 0 ? 'Históricos encontrados' : 'Nenhum histórico encontrado para este personagem'
     });
   } catch (error) {
-    console.error('❌ Erro no timeline:', error);
+    console.error('❌ Erro detalhado no timeline:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return handleErrors(res, error, "timeline");
   }
 };
