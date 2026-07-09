@@ -17,12 +17,12 @@ const sanitizeHistoricoData = (data) => {
         pcForma: Number(forma.pcForma) || 0,
         bonusPC: Number(forma.bonusPC) || 0,
         bonusAetheris: Number(forma.bonusAetheris) || 0,
-        // 🔥 NOVOS CAMPOS
         ranque: forma.ranque || null
       }));
   } else {
     rest.formas_desbloqueadas = null;
   }
+
   // Garante que campos numéricos sejam números
   const numericFields = ['subnivel', 'nivel', 'xpAtual', 'xpProximo',
     'qtd_treino', 'ponto_combate', 'ponto_combateAetheris',
@@ -77,13 +77,9 @@ const prepareHistoricoResponse = (historico) => {
 // 🔥 STORE
 const store = async (req, res) => {
   try {
-    // 1. Validação dos dados com Zod
     const validatedData = historicoSchema.parse(req.body);
-
-    // 2. Sanitização dos dados
     const dataToSave = sanitizeHistoricoData(validatedData);
 
-    // 3. Criação no banco
     const historico = await prisma.personagem_historico.create({
       data: dataToSave,
       include: {
@@ -101,7 +97,6 @@ const store = async (req, res) => {
       }
     });
 
-    // 4. Formata resposta
     const response = prepareHistoricoResponse(historico);
 
     return res.status(201).json({
@@ -175,7 +170,7 @@ const update = async (req, res) => {
   }
 };
 
-// 🔥 SHOW - CORRIGIDO: função agora está definida corretamente
+// 🔥 SHOW
 const show = async (req, res) => {
   const { id } = req.params;
   const historicoId = Number(id);
@@ -226,12 +221,14 @@ const show = async (req, res) => {
   }
 };
 
-// 🔥 TIMELINE
+// 🔥 TIMELINE - CORRIGIDO
 const timeline = async (req, res) => {
-  const { personajeId } = req.params;
-  const personagemId = Number(personajeId);
+  // Aceita ambos os nomes de parâmetro para compatibilidade
+  const { personagemId, personajeId } = req.params;
+  const idParam = personagemId || personajeId;
+  const personagemIdNum = Number(idParam);
 
-  if (isNaN(personagemId)) {
+  if (isNaN(personagemIdNum)) {
     return res.status(400).json({
       success: false,
       error: 'ID inválido',
@@ -241,7 +238,7 @@ const timeline = async (req, res) => {
 
   try {
     const personagem = await prisma.personagem.findUnique({
-      where: { id: personagemId },
+      where: { id: personagemIdNum },
       select: { id: true, nome: true }
     });
 
@@ -249,12 +246,12 @@ const timeline = async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Personagem não encontrado',
-        message: `Personagem com ID ${personagemId} não encontrado`
+        message: `Personagem com ID ${personagemIdNum} não encontrado`
       });
     }
 
     const historicos = await prisma.personagem_historico.findMany({
-      where: { personagem_id: personagemId },
+      where: { personagem_id: personagemIdNum },
       include: {
         raca: true,
         livro: {
@@ -446,11 +443,11 @@ function handleErrors(res, error, context) {
   });
 }
 
-// 🔥 EXPORTAÇÃO CORRIGIDA - TODAS AS FUNÇÕES ESTÃO DEFINIDAS
+// 🔥 EXPORTAÇÃO
 export default {
   store,
   update,
-  show,    // ✅ Agora show está definido
+  show,
   destroy,
   timeline,
   sanitizeHistoricoData,
