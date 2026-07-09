@@ -1,5 +1,5 @@
 // controllers/historico.controller.js
-import { prisma } from '../lib/prisma.js'; // ✅ Usando importação nomeada
+import prisma from '../lib/prisma.js';
 import { historicoSchema } from '../validator/historico.validator.js';
 import { ZodError } from 'zod';
 
@@ -221,14 +221,12 @@ const show = async (req, res) => {
   }
 };
 
+// 🔥 TIMELINE - CORRIGIDO
 const timeline = async (req, res) => {
-  console.log('🔍 Timeline chamada com params:', req.params);
-  
+  // Aceita ambos os nomes de parâmetro para compatibilidade
   const { personagemId, personajeId } = req.params;
   const idParam = personagemId || personajeId;
   const personagemIdNum = Number(idParam);
-
-  console.log('🔍 ID processado:', { idParam, personagemIdNum });
 
   if (isNaN(personagemIdNum)) {
     return res.status(400).json({
@@ -239,11 +237,11 @@ const timeline = async (req, res) => {
   }
 
   try {
-    // 🔥 VERIFICAÇÃO EXPLÍCITA
-    if (!prisma || !prisma.personagem) {
-      console.error('❌ Prisma ou modelo personagem não disponível:', {
+    // Verifica se o modelo personagens existe
+    if (!prisma || !prisma.personagens) {
+      console.error('❌ Prisma ou modelo personagens não disponível:', {
         prisma: !!prisma,
-        personagem: prisma?.personagem ? 'disponível' : 'indisponível'
+        personagens: prisma?.personagens ? 'disponível' : 'indisponível'
       });
       return res.status(500).json({
         success: false,
@@ -252,9 +250,7 @@ const timeline = async (req, res) => {
       });
     }
 
-    console.log('🔍 Prisma disponível, buscando personagem...');
-
-    const personagem = await prisma.personagem.findUnique({
+    const personagem = await prisma.personagens.findUnique({
       where: { id: personagemIdNum },
       select: { id: true, nome: true }
     });
@@ -267,6 +263,7 @@ const timeline = async (req, res) => {
       });
     }
 
+    // 🔥 CORRIGIDO: Usar "id_item" em vez de "id" no select do itens
     const historicos = await prisma.personagem_historico.findMany({
       where: { personagem_id: personagemIdNum },
       include: {
@@ -286,10 +283,15 @@ const timeline = async (req, res) => {
               include: {
                 itens: {
                   select: {
-                    id: true,
+                    id_item: true,        // 🔥 CORRIGIDO: id_item em vez de id
                     nome: true,
                     descricao: true,
-                    tipo: true
+                    tipo: true,
+                    aparencia: true,
+                    listaHabilidades: true,
+                    urlImagem: true,
+                    usuarios: true,
+                    createdAt: true
                   }
                 }
               }
