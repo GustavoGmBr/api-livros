@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CONFIGURAÇÃO CORS ROBUSTA
+// ✅ LISTA DE ORIGENS PERMITIDAS
 const allowedOrigins = [
     'https://setimoelemento.com.br',
     'https://www.setimoelemento.com.br',
@@ -16,34 +16,41 @@ const allowedOrigins = [
     'http://localhost:5174'
 ];
 
+// ✅ MIDDLEWARE PARA OPTIONS (CORRIGIDO)
+app.use((req, res, next) => {
+    if (req.method === 'OPTIONS') {
+        const origin = req.headers.origin;
+        res.header('Access-Control-Allow-Origin', origin || '*');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Max-Age', '86400');
+        res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+        return res.sendStatus(200);
+    }
+    next();
+});
+
+// ✅ CONFIGURAÇÃO CORS
 app.use(cors({
     origin: function (origin, callback) {
-        // Permitir requisições sem origin (ex: Postman, curl)
         if (!origin) {
             console.log('✅ Requisição sem origin (permitida)');
             return callback(null, true);
         }
         
-        // Verificar se a origem está na lista de permitidas
         if (allowedOrigins.indexOf(origin) !== -1) {
             console.log(`✅ CORS permitido para: ${origin}`);
             return callback(null, true);
         } else {
             console.log(`❌ CORS bloqueado para: ${origin}`);
-            return callback(null, false);
+            return callback(new Error('Origem não permitida pelo CORS'), false);
         }
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'Accept',
-        'Origin',
-        'X-Requested-With'
-    ],
-    exposedHeaders: ['Content-Length', 'Content-Range'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
     credentials: true,
-    optionsSuccessStatus: 200 // Para navegadores antigos
+    optionsSuccessStatus: 200
 }));
 
 // ✅ Middleware para JSON
@@ -63,9 +70,6 @@ app.get('/', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-
-// ✅ Rota de teste para CORS
-app.options('*', cors()); // Responder a todas as requisições OPTIONS
 
 // ✅ Montagem das rotas
 app.use('/api', router);
