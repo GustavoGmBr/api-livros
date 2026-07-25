@@ -48,10 +48,45 @@ import inventarioprivate from './private/inventario.routes.js';
 // 🐲 import Bestiario
 import bestiariopublic from './public/bestiario.routes.js';
 import bestiarioprivate from './private/bestiario.routes.js';
+
 const router = Router();
 
-router.use('/auth', authRoutes);
+// ✅ ROTA RAIZ - Informações da API
+router.get('/', (req, res) => {
+    res.json({
+        status: 'online',
+        message: 'Setimo Elemento API is running',
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        endpoints: {
+            auth: '/api/auth',
+            sagas: '/api/sagas',
+            livros: '/api/livros',
+            capitulos: '/api/capitulos',
+            locais: '/api/locais',
+            racas: '/api/racas',
+            personagens: '/api/personagens',
+            historicos: '/api/historicos',
+            itens: '/api/itens',
+            formas: '/api/formas',
+            sistemas: '/api/sistemas',
+            inventarios: '/api/inventarios',
+            bestiario: '/api/bestiario'
+        }
+    });
+});
 
+// ✅ ROTA DE HEALTH CHECK
+router.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
+
+// 🔐 Rotas de Autenticação
+router.use('/auth', authRoutes);
 
 // 📕 Sagas
 router.use('/sagas', sagapublic);
@@ -67,7 +102,7 @@ router.use('/private/capitulos', capituloprivate);
 
 // 📍 Locais
 router.use('/locais', locaisPublic);
-router.use('/private/locais', locaisPrivate)
+router.use('/private/locais', locaisPrivate);
 
 // 🤴 Raças
 router.use('/racas', racaspublic);
@@ -99,6 +134,6 @@ router.use('/private/inventarios', inventarioprivate);
 
 // 🐲 Bestiário
 router.use('/bestiario', bestiariopublic);
-router.use('/private/bestiario', bestiarioprivate)
+router.use('/private/bestiario', bestiarioprivate);
 
 export default router;
