@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-// ✅ LISTA DE ORIGENS PERMITIDAS
+// ✅ LISTA DE ORIGENS PERMITIDAS (ATUALIZADA)
 const allowedOrigins = [
     'https://setimoelemento.com.br',
     'https://www.setimoelemento.com.br',
@@ -18,7 +18,14 @@ const allowedOrigins = [
     'http://localhost:5175',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000'
+    'http://127.0.0.1:3000',
+    // 🔥 IP da VPS
+    'http://191.252.113.121',
+    'http://191.252.113.121:3333',
+    // 🔥 IP da HostGator
+    'http://69.6.249.145',
+    'http://69.6.249.145:3333',
+    'https://69.6.249.145'
 ];
 
 // ✅ MIDDLEWARE DE LOG
@@ -57,6 +64,12 @@ app.use(cors({
             return callback(null, true);
         }
 
+        // 🔥 Verifica IPs da VPS e HostGator
+        if (cleanOrigin.includes('191.252.113.121') || cleanOrigin.includes('69.6.249.145')) {
+            console.log(`✅ CORS permitido para IP: ${cleanOrigin}`);
+            return callback(null, true);
+        }
+
         console.log(`❌ CORS BLOQUEADO para: ${cleanOrigin}`);
         return callback(new Error('Origem não permitida pelo CORS'), false);
     },
@@ -77,9 +90,6 @@ app.use(cors({
     optionsSuccessStatus: 200,
     maxAge: 86400
 }));
-
-// ⚠️ REMOVA esta linha (está causando o erro):
-// app.options('*', cors());
 
 // ✅ Middleware para JSON
 app.use(express.json({ limit: '10mb' }));
@@ -200,3 +210,5 @@ process.on('unhandledRejection', (err) => {
 process.on('uncaughtException', (err) => {
     console.error('❌ Uncaught Exception:', err);
 });
+
+export default app;
