@@ -51,17 +51,26 @@ const ftpService = {
         caminhoDiretorio = 'livros/capas';
       }
 
+      // 🔥 CORRIGIDO: O caminho deve ser /setimoelemento.com.br/uploads/...
+      // Mas note que no servidor, a estrutura é:
+      // /home/usuario/setimoelemento.com.br/uploads/
+      // Ou pode ser que o FTP já esteja na raiz do domínio
       const remoteDir = `/setimoelemento.com.br/uploads/${caminhoDiretorio}`;
+      console.log(`📁 Criando diretório: ${remoteDir}`);
       await client.ensureDir(remoteDir);
 
       const stream = Readable.from(file.buffer);
       const remoteFilePath = `${remoteDir}/${nomeFinal}`;
+      console.log(`📤 Enviando arquivo para: ${remoteFilePath}`);
       await client.uploadFrom(stream, remoteFilePath);
 
-      // Monta a URL pública
+      // 🔥 CORRIGIDO: A URL pública deve apontar para a pasta correta
+      // Se o servidor tem a estrutura /setimoelemento.com.br/uploads/
+      // A URL pública é https://setimoelemento.com.br/uploads/...
       const urlPublica = `https://setimoelemento.com.br/uploads/${caminhoDiretorio}/${nomeFinal}`;
       
       console.log(`✅ Upload concluído em [${caminhoDiretorio}]: ${nomeFinal}`);
+      console.log(`🔗 URL pública: ${urlPublica}`);
       return urlPublica;
 
     } catch (error) {
