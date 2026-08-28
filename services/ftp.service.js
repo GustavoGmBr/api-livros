@@ -11,8 +11,8 @@ const config = {
 
 const ftpService = {
   async uploadFile(file, subPasta = 'personagens', customName = null) {
-    // 🚀 Adicionada 'formas' como uma pasta permitida na chamada do serviço
-    const allowedFolders = ['personagens', 'bestiario', 'itens', 'locais', 'formas'];
+    // 🚀 Adicionadas novas pastas permitidas
+    const allowedFolders = ['personagens', 'bestiario', 'itens', 'locais', 'formas', 'livros'];
     
     if (!allowedFolders.includes(subPasta)) {
       console.warn(`⚠️ Pasta inválida: ${subPasta}, usando 'personagens'`);
@@ -20,14 +20,14 @@ const ftpService = {
     }
 
     const client = new ftp.Client();
-    client.ftp.timeout = 30000; // Evita que a conexão trave infinitamente
+    client.ftp.timeout = 30000;
 
     try {
       await client.access(config);
       
       const extensao = path.extname(file.originalname).toLowerCase();
       
-      // 1. Sanitização do nome (Se houver customName, limpa e remove extensões extras)
+      // 1. Sanitização do nome
       let nameBase = Date.now().toString();
 
       if (customName) {
@@ -41,10 +41,14 @@ const ftpService = {
 
       const nomeFinal = `${nameBase}${extensao}`;
 
-      // 📁 Regra de Negócio: Se a pasta for 'formas', aninha ela dentro de 'personagens/formas'
+      // 📁 Regras de Negócio para pastas aninhadas
       let caminhoDiretorio = subPasta;
       if (subPasta === 'formas') {
         caminhoDiretorio = 'personagens/formas';
+      }
+      // 📚 Regra para capas de livros - manter em pasta própria
+      if (subPasta === 'livros') {
+        caminhoDiretorio = 'livros/capas';
       }
 
       const remoteDir = `/setimoelemento.com.br/uploads/${caminhoDiretorio}`;
@@ -54,7 +58,7 @@ const ftpService = {
       const remoteFilePath = `${remoteDir}/${nomeFinal}`;
       await client.uploadFrom(stream, remoteFilePath);
 
-      // Monta a URL pública apontando exatamente para onde o arquivo foi guardado
+      // Monta a URL pública
       const urlPublica = `https://setimoelemento.com.br/uploads/${caminhoDiretorio}/${nomeFinal}`;
       
       console.log(`✅ Upload concluído em [${caminhoDiretorio}]: ${nomeFinal}`);

@@ -21,10 +21,10 @@ const allowedOrigins = [
     'http://127.0.0.1:3000',
     // 🔥 IP da VPS
     'http://191.252.113.121',
-    'http://191.252.113.121:3333',
+    'http://191.252.113.121:3335',
     // 🔥 IP da HostGator
     'http://69.6.249.145',
-    'http://69.6.249.145:3333',
+    'http://69.6.249.145:3335',
     'https://69.6.249.145'
 ];
 
@@ -171,7 +171,7 @@ app.use((err, req, res, next) => {
 });
 
 // ✅ Iniciar servidor
-const port = process.env.PORT || 3333;
+const port = process.env.PORT || 3335;
 const host = '0.0.0.0';
 
 const server = app.listen(port, host, () => {

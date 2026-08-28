@@ -23,6 +23,7 @@ model livros {
   data_publicacao      DateTime?              @db.Date
   ordem_serie          Int?
   saga_id              Int?
+  foto_capa            String?                @db.VarChar(255)  // NOVO CAMPO
   capitulos            capitulos[]
   saga                 sagas?                 @relation(fields: [saga_id], references: [id])
   personagemHistoricos personagem_historico[]

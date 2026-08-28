@@ -1,4 +1,4 @@
-// server/middlewares/upload.middleware.js
+// server/middlewares/upload.js
 import multer from 'multer';
 
 const storage = multer.memoryStorage();
@@ -21,8 +21,9 @@ const upload = multer({
 export const uploadPersonagem = upload.single('personagem');
 export const uploadItem = upload.single('item');
 export const uploadLocal = upload.single('local'); 
-// 🐲 Novo: Upload de arquivo único para o Bestiário
-export const uploadBestiario = upload.single('bestiario'); 
+export const uploadBestiario = upload.single('bestiario');
+// 📚 NOVO: Upload de capa de livro
+export const uploadLivro = upload.single('foto_capa');
 
 // Upload de múltiplos campos para a Forma Especial (.fields)
 export const uploadFormaEspecial = upload.fields([
